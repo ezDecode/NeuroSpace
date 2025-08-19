@@ -6,13 +6,16 @@ import {
   CloudArrowUpIcon, 
   DocumentTextIcon,
   XMarkIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 
 interface FileWithPreview extends File {
   preview?: string;
   status?: 'uploading' | 'success' | 'error';
   progress?: number;
+  fileKey?: string;
+  error?: string;
 }
 
 export default function UploadPage() {
@@ -37,7 +40,8 @@ export default function UploadPage() {
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
-    multiple: true
+    multiple: true,
+    maxSize: 10 * 1024 * 1024, // 10MB
   });
 
   const removeFile = (index: number) => {
@@ -51,27 +55,99 @@ export default function UploadPage() {
     });
   };
 
+  const uploadFileToS3 = async (file: File, index: number): Promise<{ fileKey: string }> => {
+    // Get signed URL from our API
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get upload URL');
+    }
+
+    const { signedUrl, fileKey } = await response.json();
+
+    // Upload to S3 using signed URL
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file to S3');
+    }
+
+    return { fileKey };
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) return;
     
     setUploading(true);
     
-    // Simulate upload process
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
-      // Simulate progress
-      for (let progress = 0; progress <= 100; progress += 10) {
+      try {
+        // Update progress to 25%
         setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, progress } : f
+          index === i ? { ...f, progress: 25 } : f
         ));
-        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Upload to S3
+        const { fileKey } = await uploadFileToS3(file, i);
+        
+        // Update progress to 75%
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { ...f, progress: 75, fileKey } : f
+        ));
+
+        // Simulate processing time
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mark as success
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { ...f, status: 'success' as const, progress: 100 } : f
+        ));
+
+        // Trigger file processing
+        try {
+          await fetch('/api/process', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fileKey,
+              fileName: file.name,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to trigger processing:', error);
+        }
+
+      } catch (error) {
+        console.error('Upload error:', error);
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { 
+            ...f, 
+            status: 'error' as const, 
+            error: error instanceof Error ? error.message : 'Upload failed'
+          } : f
+        ));
       }
-      
-      // Mark as success
-      setFiles(prev => prev.map((f, index) => 
-        index === i ? { ...f, status: 'success' as const, progress: 100 } : f
-      ));
     }
     
     setUploading(false);
@@ -133,6 +209,9 @@ export default function UploadPage() {
                     <p className="text-sm text-gray-500">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
+                    {file.error && (
+                      <p className="text-sm text-red-500 mt-1">{file.error}</p>
+                    )}
                   </div>
                 </div>
                 
@@ -153,6 +232,10 @@ export default function UploadPage() {
                   {/* Status Icons */}
                   {file.status === 'success' && (
                     <CheckCircleIcon className="w-6 h-6 text-green-500" />
+                  )}
+                  
+                  {file.status === 'error' && (
+                    <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
                   )}
                   
                   {/* Remove Button */}

@@ -1,0 +1,57 @@
+import boto3
+import os
+from botocore.exceptions import ClientError
+import tempfile
+from typing import Optional
+
+class S3Service:
+    def __init__(self):
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.getenv('AWS_REGION')
+        )
+        self.bucket_name = os.getenv('AWS_S3_BUCKET_NAME')
+
+    async def download_file(self, file_key: str) -> Optional[str]:
+        """
+        Download a file from S3 and return the local file path
+        """
+        try:
+            # Create a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.tmp')
+            temp_file_path = temp_file.name
+            temp_file.close()
+
+            # Download file from S3
+            self.s3_client.download_file(self.bucket_name, file_key, temp_file_path)
+            
+            return temp_file_path
+        except ClientError as e:
+            print(f"Error downloading file from S3: {e}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error downloading file: {e}")
+            return None
+
+    async def get_file_metadata(self, file_key: str) -> Optional[dict]:
+        """
+        Get metadata for a file in S3
+        """
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            return response.get('Metadata', {})
+        except ClientError as e:
+            print(f"Error getting file metadata: {e}")
+            return None
+
+    def cleanup_temp_file(self, file_path: str):
+        """
+        Clean up temporary file
+        """
+        try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print(f"Error cleaning up temp file: {e}")
