@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { SVGProps, ComponentType } from 'react';
 
-export function NavItem({ href, name, Icon, active }: { href: string; name: string; Icon: any; active: boolean; }) {
+export function NavItem({ href, name, Icon, active }: { href: string; name: string; Icon: ComponentType<SVGProps<SVGSVGElement>>; active: boolean; }) {
 	return (
 		<Link
 			href={href}

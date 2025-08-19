@@ -1,4 +1,3 @@
-import { UserButton } from "@clerk/nextjs";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 

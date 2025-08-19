@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
-// Security: Validate file key format
-const validateFileKey = (fileKey: string, userId: string): boolean => {
-  const safePattern = /^[a-zA-Z0-9\-_\.]+$/;
-  return fileKey.startsWith(`uploads/${userId}/`) && safePattern.test(fileKey);
-};
-
-// Security: Determine content type from file extension
-const getContentTypeFromFileName = (fileName: string): string => {
-  const extension = fileName.split('.').pop()?.toLowerCase();
-  const mimeTypes: { [key: string]: string } = {
-    'pdf': 'application/pdf',
-    'txt': 'text/plain',
-    'doc': 'application/msword',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  };
-  return mimeTypes[extension || ''] || 'application/octet-stream';
-};
-
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
@@ -29,35 +11,9 @@ export async function POST(request: NextRequest) {
 
     const { fileKey, fileName } = await request.json();
 
-    // Security: Input validation
     if (!fileKey || !fileName) {
       return NextResponse.json(
         { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Security: Validate file key format
-    if (!validateFileKey(fileKey, userId)) {
-      return NextResponse.json(
-        { error: 'Invalid file key' },
-        { status: 400 }
-      );
-    }
-
-    // Security: Validate file name
-    if (typeof fileName !== 'string' || fileName.length > 255) {
-      return NextResponse.json(
-        { error: 'Invalid file name' },
-        { status: 400 }
-      );
-    }
-
-    // Security: Determine content type from file extension
-    const contentType = getContentTypeFromFileName(fileName);
-    if (contentType === 'application/octet-stream') {
-      return NextResponse.json(
-        { error: 'Unsupported file type' },
         { status: 400 }
       );
     }
@@ -76,7 +32,7 @@ export async function POST(request: NextRequest) {
           file_name: fileName,
           user_id: userId,
           file_size: 0, // Will be determined by backend from S3
-          content_type: contentType,
+          content_type: fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream',
         }),
       });
 
