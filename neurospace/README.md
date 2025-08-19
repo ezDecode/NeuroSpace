@@ -2,26 +2,38 @@
 
 A modern AI-powered "Second Brain" application where users can upload documents, store them securely, and ask natural language queries using cutting-edge AI technology.
 
-## 🚀 Current Status: Week 1 - Day 1-2 Complete
+## 🚀 Current Status: Week 1 Complete ✅
 
-### ✅ Completed Features
-- **Day 1**: Next.js + Tailwind + Clerk authentication setup
-- **Day 2**: Dashboard UI with sidebar, navbar, and welcome screen
-- Modern landing page with authentication
-- Responsive dashboard layout
-- File upload interface (UI ready)
-- Navigation structure
+### ✅ **Completed Features**
+- **Authentication**: Clerk integration with route protection
+- **File Upload**: Drag & drop with S3 signed URLs
+- **Text Processing**: Multi-format extraction (PDF, DOCX, TXT)
+- **AI Integration**: Nvidia NIM embeddings generation
+- **Vector Storage**: Pinecone similarity search
+- **Database**: Supabase with Row-Level Security
+- **Security**: Comprehensive validation and error handling
 
-### 🎯 Week 1 Remaining Tasks
-- **Day 3**: File upload system with AWS S3 integration
-- **Day 4**: FastAPI backend setup
-- **Day 5**: Nvidia NIM API + Pinecone integration
-- **Day 6**: Supabase database setup
-- **Day 7**: End-to-end integration testing
+### 🎯 **Week 2 Roadmap**
+- [ ] Chat UI implementation
+- [ ] Query processing pipeline
+- [ ] AI answer generation
+- [ ] Advanced file management
+- [ ] Final polish and deployment
 
-## 🛠 Tech Stack
+## 🏗️ **Architecture Overview**
 
-### Frontend
+```
+Frontend (Next.js) ←→ Backend (FastAPI) ←→ External Services
+     │                      │                    │
+     ├─ Clerk Auth         ├─ Text Extraction   ├─ AWS S3 (Files)
+     ├─ File Upload        ├─ Embedding Gen     ├─ Nvidia NIM (AI)
+     ├─ Dashboard UI       ├─ Vector Storage    ├─ Pinecone (Vectors)
+     └─ File Management    └─ Metadata Storage  └─ Supabase (DB)
+```
+
+## 🛠 **Tech Stack**
+
+### **Frontend**
 - **Next.js 14** (App Router)
 - **TypeScript**
 - **Tailwind CSS**
@@ -29,159 +41,349 @@ A modern AI-powered "Second Brain" application where users can upload documents,
 - **Heroicons** (Icons)
 - **React Dropzone** (File upload)
 
-### Backend (Coming Soon)
+### **Backend**
 - **FastAPI** (Python)
+- **PyPDF2** (PDF extraction)
+- **python-docx** (DOCX extraction)
 - **Nvidia NIM API** (AI embeddings)
 - **Pinecone** (Vector database)
 - **Supabase** (PostgreSQL)
+
+### **Infrastructure**
 - **AWS S3** (File storage)
+- **Vercel** (Frontend deployment)
+- **Railway/Render** (Backend deployment)
 
-## 🚀 Getting Started
+## 📁 **Codebase Structure**
 
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- Clerk account (for authentication)
-- AWS account (for S3)
+### **Frontend Structure**
+```
+src/
+├── app/
+│   ├── api/                    # API Routes
+│   │   ├── upload/route.ts     # File upload API
+│   │   ├── process/route.ts    # File processing API
+│   │   └── files/route.ts      # File management API
+│   ├── dashboard/              # Protected Dashboard
+│   │   ├── upload/page.tsx     # File upload UI
+│   │   ├── documents/page.tsx  # File management
+│   │   ├── chat/page.tsx       # QnA interface
+│   │   └── settings/page.tsx   # User settings
+│   ├── layout.tsx              # Root layout
+│   └── page.tsx                # Landing page
+└── components/
+    ├── Sidebar.tsx             # Navigation sidebar
+    └── Navbar.tsx              # Top navigation
+```
+
+### **Backend Structure**
+```
+backend/
+├── app/
+│   ├── routes/
+│   │   ├── processing.py       # File processing endpoints
+│   │   └── files.py           # File management endpoints
+│   ├── services/
+│   │   ├── s3_service.py      # AWS S3 integration
+│   │   ├── text_extractor.py  # Text extraction
+│   │   ├── nim_service.py     # Nvidia NIM API
+│   │   ├── pinecone_service.py # Vector database
+│   │   └── supabase_service.py # Database operations
+│   ├── models/
+│   │   └── file.py            # Pydantic models
+│   └── __init__.py            # FastAPI app
+├── requirements.txt           # Python dependencies
+├── supabase_schema.sql        # Database schema
+└── test_integration.py        # Integration tests
+```
+
+## 🚀 **Quick Start**
+
+### **Prerequisites**
+- Node.js 18+
+- Python 3.9+
+- AWS Account
 - Nvidia NIM API access
 - Pinecone account
 - Supabase account
+- Clerk account
 
-### Installation
+### **1. Clone & Install**
+```bash
+git clone <repository-url>
+cd neurospace
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd neurospace
-   ```
+# Frontend setup
+npm install
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.local.example .env.local
-   ```
-   
-   Fill in your API keys in `.env.local`:
-   ```env
-   # Clerk Authentication
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-   CLERK_SECRET_KEY=your_clerk_secret_key
-   
-   # AWS S3
-   AWS_ACCESS_KEY_ID=your_aws_access_key
-   AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-   AWS_REGION=us-east-1
-   AWS_S3_BUCKET_NAME=your_s3_bucket_name
-   
-   # Nvidia NIM API
-   NVIDIA_NIM_API_KEY=your_nim_api_key
-   NVIDIA_NIM_BASE_URL=https://api.nvcf.nvidia.com
-   
-   # Pinecone
-   PINECONE_API_KEY=your_pinecone_api_key
-   PINECONE_ENVIRONMENT=your_pinecone_environment
-   PINECONE_INDEX_NAME=neurospace-embeddings
-   
-   # Supabase
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-   
-   # Backend API
-   NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
-   ```
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 📁 Project Structure
-
-```
-neurospace/
-├── src/
-│   ├── app/
-│   │   ├── dashboard/
-│   │   │   ├── chat/
-│   │   │   ├── documents/
-│   │   │   ├── settings/
-│   │   │   ├── upload/
-│   │   │   ├── layout.tsx
-│   │   │   └── page.tsx
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   └── components/
-│       ├── Navbar.tsx
-│       └── Sidebar.tsx
-├── public/
-├── .env.local
-├── middleware.ts
-└── package.json
+# Backend setup
+cd backend
+pip install -r requirements.txt
 ```
 
-## 🔒 Security Features
+### **2. Environment Setup**
+```bash
+# Frontend (.env.local)
+cp .env.local.example .env.local
 
-- **Clerk Authentication**: All routes protected with user authentication
-- **Environment Variables**: All API keys stored securely in `.env.local`
-- **Signed S3 URLs**: File uploads via secure signed URLs (no public bucket access)
-- **Row-Level Security**: Supabase RLS for user data isolation
+# Backend (backend/.env)
+cp backend/.env.example backend/.env
+```
 
-## 🎨 UI Components
+**Required Environment Variables:**
+```env
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_key
+CLERK_SECRET_KEY=your_clerk_secret
 
-The application uses modern UI components and follows best practices:
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Modern Icons**: Heroicons for consistent iconography
-- **Gradient Design**: Purple to pink gradients for brand consistency
-- **Interactive Elements**: Hover states and smooth transitions
+# AWS S3
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your_bucket
 
-## 📋 Development Roadmap
+# Nvidia NIM API
+NVIDIA_NIM_API_KEY=your_nim_key
+NVIDIA_NIM_BASE_URL=https://api.nvcf.nvidia.com
 
-### Week 1 (Current Sprint)
-- [x] Day 1: Next.js + Tailwind + Clerk setup
-- [x] Day 2: Dashboard UI components
-- [ ] Day 3: File upload + AWS S3 integration
-- [ ] Day 4: FastAPI backend setup
-- [ ] Day 5: Nvidia NIM + Pinecone integration
-- [ ] Day 6: Supabase database setup
-- [ ] Day 7: End-to-end integration testing
+# Pinecone
+PINECONE_API_KEY=your_pinecone_key
+PINECONE_ENVIRONMENT=your_environment
+PINECONE_INDEX_NAME=neurospace-embeddings
 
-### Week 2 (Next Sprint)
-- [ ] Day 8: Chat UI implementation
-- [ ] Day 9: Query processing pipeline
-- [ ] Day 10: AI answer generation
-- [ ] Day 11: Chat interface with references
-- [ ] Day 12: File management features
-- [ ] Day 13: Security hardening
-- [ ] Day 14: Deployment and polish
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
 
-## 🤝 Contributing
+# Backend API
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+```
 
+### **3. Database Setup**
+```sql
+-- Run in Supabase SQL Editor
+-- Copy contents of backend/supabase_schema.sql
+```
+
+### **4. Start Development**
+```bash
+# Frontend (Terminal 1)
+npm run dev
+# http://localhost:3000
+
+# Backend (Terminal 2)
+cd backend
+python main.py
+# http://localhost:8000
+```
+
+## 🔄 **Data Flow**
+
+### **File Upload & Processing**
+1. **User Upload** → Drag & drop files
+2. **Validation** → File type, size, extension
+3. **S3 Upload** → Secure signed URL upload
+4. **Processing** → Text extraction & chunking
+5. **AI Embeddings** → Nvidia NIM generation
+6. **Vector Storage** → Pinecone similarity search
+7. **Metadata** → Supabase PostgreSQL storage
+
+### **Security Flow**
+1. **Authentication** → Clerk JWT validation
+2. **Authorization** → Route protection middleware
+3. **Input Validation** → File type, size, path validation
+4. **Data Isolation** → Row-Level Security (RLS)
+5. **Error Handling** → Generic production messages
+
+## 🔧 **Development Guide**
+
+### **Adding New Features**
+
+#### **Frontend Modifications**
+```bash
+# New page
+src/app/dashboard/new-feature/page.tsx
+
+# New API route
+src/app/api/new-feature/route.ts
+
+# New component
+src/components/NewComponent.tsx
+
+# Update navigation
+src/components/Sidebar.tsx
+```
+
+#### **Backend Modifications**
+```bash
+# New route
+backend/app/routes/new_feature.py
+
+# New service
+backend/app/services/new_service.py
+
+# New model
+backend/app/models/new_model.py
+
+# Update database
+backend/supabase_schema.sql
+```
+
+### **Common Modification Points**
+
+| Feature | Frontend | API | Backend |
+|---------|----------|-----|---------|
+| **File Upload** | `upload/page.tsx` | `upload/route.ts` | `processing.py` |
+| **File Management** | `documents/page.tsx` | `files/route.ts` | `supabase_service.py` |
+| **Authentication** | `middleware.ts` | - | - |
+| **AI Processing** | - | - | `nim_service.py` |
+| **Vector Search** | - | - | `pinecone_service.py` |
+
+## 🧪 **Testing**
+
+### **Integration Testing**
+```bash
+cd backend
+python test_integration.py
+```
+
+### **Security Testing**
+- Review `SECURITY_AUDIT_REPORT.md`
+- Test file upload security
+- Validate input sanitization
+- Check authentication flow
+
+### **Manual Testing**
+1. **Upload Flow**: Test file upload → processing → storage
+2. **Authentication**: Test login/logout and route protection
+3. **Error Handling**: Test with invalid files and network errors
+4. **Responsive Design**: Test on mobile and desktop
+
+## 🚀 **Deployment**
+
+### **Frontend (Vercel)**
+```bash
+# Build
+npm run build
+
+# Deploy
+vercel --prod
+```
+
+### **Backend (Railway/Render)**
+```bash
+# Requirements
+backend/requirements.txt
+
+# Start command
+python main.py
+
+# Environment variables
+backend/.env
+```
+
+### **Database (Supabase)**
+- Run schema migrations
+- Enable Row-Level Security
+- Configure backups
+
+## 🔒 **Security Features**
+
+### **Authentication & Authorization**
+- ✅ Clerk JWT authentication
+- ✅ Route protection middleware
+- ✅ Row-Level Security (RLS)
+- ✅ User data isolation
+
+### **Input Validation**
+- ✅ File extension whitelisting
+- ✅ File size limits (10MB)
+- ✅ Path traversal prevention
+- ✅ MIME type validation
+- ✅ Input sanitization
+
+### **Error Handling**
+- ✅ Generic production error messages
+- ✅ Comprehensive logging
+- ✅ Memory leak prevention
+- ✅ Error isolation
+
+## 📊 **Performance & Monitoring**
+
+### **Health Checks**
+```bash
+# Frontend
+http://localhost:3000
+
+# Backend
+http://localhost:8000/health
+```
+
+### **Monitoring Points**
+- File upload success rates
+- Processing job completion
+- API response times
+- Error rates and types
+- User authentication events
+
+## 🤝 **Contributing**
+
+### **Development Workflow**
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create feature branch
+3. Make changes following the structure
+4. Test thoroughly
+5. Submit pull request
 
-## 📄 License
+### **Code Standards**
+- **Frontend**: TypeScript, ESLint, Prettier
+- **Backend**: Python, Black, Flake8
+- **Security**: Follow security audit guidelines
+- **Documentation**: Update relevant docs
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📚 **Documentation**
 
-## 🆘 Support
+### **Key Documents**
+- `CODEBASE_SUMMARY.md` - Detailed file structure
+- `SECURITY_AUDIT_REPORT.md` - Security analysis
+- `WEEK1_COMPLETE.md` - Development progress
+- `backend/README.md` - Backend-specific guide
 
-For support and questions:
-- Create an issue in the repository
-- Check the documentation
-- Review the PRD for detailed specifications
+### **API Documentation**
+- **Frontend API**: Next.js API routes
+- **Backend API**: FastAPI auto-generated docs
+- **Database**: Supabase schema and policies
 
----
+## 🆘 **Support & Troubleshooting**
 
-**Built with ❤️ using Next.js, TypeScript, and modern AI technologies**
+### **Common Issues**
+1. **Environment Variables**: Ensure all required vars are set
+2. **Database Connection**: Check Supabase credentials
+3. **File Upload**: Verify S3 bucket permissions
+4. **AI Processing**: Validate NIM API access
+
+### **Debug Mode**
+```bash
+# Frontend
+NODE_ENV=development
+
+# Backend
+DEBUG=True
+```
+
+### **Logs**
+- **Frontend**: Browser console
+- **Backend**: Application logs
+- **Database**: Supabase logs
+
+## 📄 **License**
+
+This project is licensed under the MIT License.
+
+## 🏆 **Project Status**
+
+**Week 1**: ✅ **Complete** - Foundation with file upload, processing, and storage
+**Week 2**: 🚧 **In Progress** - QnA chat interface and advanced features
+
+**Ready for production deployment with comprehensive security measures! 🚀**

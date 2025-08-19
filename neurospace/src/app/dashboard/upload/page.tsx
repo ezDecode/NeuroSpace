@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { 
   CloudArrowUpIcon, 
@@ -21,6 +21,17 @@ interface FileWithPreview extends File {
 export default function UploadPage() {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Security: Cleanup object URLs on component unmount
+  useEffect(() => {
+    return () => {
+      files.forEach(file => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
+    };
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map(file => ({
@@ -92,64 +103,77 @@ export default function UploadPage() {
     return { fileKey };
   };
 
+  const processFile = async (fileKey: string, fileName: string) => {
+    try {
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileKey,
+          fileName,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process file');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Processing error:', error);
+      throw error;
+    }
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) return;
     
     setUploading(true);
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
+    // Process files with error isolation
+    const uploadPromises = files.map(async (file, index) => {
       try {
         // Update progress to 25%
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, progress: 25 } : f
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, progress: 25 } : f
         ));
 
         // Upload to S3
-        const { fileKey } = await uploadFileToS3(file, i);
+        const { fileKey } = await uploadFileToS3(file, index);
         
         // Update progress to 75%
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, progress: 75, fileKey } : f
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, progress: 75, fileKey } : f
         ));
 
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Process file (this will happen in background)
+        processFile(fileKey, file.name).catch(error => {
+          console.error(`Background processing failed for ${file.name}:`, error);
+          // Don't mark as error since upload was successful
+        });
         
         // Mark as success
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, status: 'success' as const, progress: 100 } : f
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, status: 'success' as const, progress: 100 } : f
         ));
 
-        // Trigger file processing
-        try {
-          await fetch('/api/process', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              fileKey,
-              fileName: file.name,
-            }),
-          });
-        } catch (error) {
-          console.error('Failed to trigger processing:', error);
-        }
-
       } catch (error) {
-        console.error('Upload error:', error);
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { 
+        console.error(`Upload error for ${file.name}:`, error);
+        setFiles(prev => prev.map((f, i) => 
+          i === index ? { 
             ...f, 
             status: 'error' as const, 
             error: error instanceof Error ? error.message : 'Upload failed'
           } : f
         ));
       }
-    }
-    
+    });
+
+    // Wait for all uploads to complete
+    await Promise.allSettled(uploadPromises);
     setUploading(false);
   };
 
@@ -199,7 +223,7 @@ export default function UploadPage() {
           <div className="space-y-4">
             {files.map((file, index) => (
               <div
-                key={index}
+                key={`${file.name}-${index}`}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-center space-x-4">
