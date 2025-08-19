@@ -96,3 +96,36 @@ class NIMService:
         except Exception as e:
             print(f"NIM API connection test failed: {e}")
             return False
+
+    async def generate_answer(self, question: str, context: str) -> Optional[str]:
+        """
+        Generate an answer using NIM chat completion given a question and context.
+        """
+        try:
+            url = f"{self.base_url}/v1/chat/completions"
+            system_prompt = (
+                "You are a helpful assistant that answers based strictly on the provided CONTEXT.\n"
+                "If the answer isn't contained in the context, say you don't have enough information.\n"
+                "Cite relevant filenames if provided in the context metadata."
+            )
+            payload = {
+                "model": "meta/llama-3.1-70b-instruct",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 512
+            }
+            response = requests.post(url, headers=self.headers, json=payload)
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    return result['choices'][0].get('message', {}).get('content', '').strip()
+                return None
+            else:
+                print(f"NIM API error: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            print(f"Error generating answer with NIM API: {e}")
+            return None
