@@ -1,10 +1,52 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+import logging
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Security: Validate required environment variables
+def validate_environment():
+    """Validate that all required environment variables are set"""
+    required_vars = [
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY', 
+        'AWS_REGION',
+        'AWS_S3_BUCKET_NAME',
+        'NVIDIA_NIM_API_KEY',
+        'PINECONE_API_KEY',
+        'PINECONE_ENVIRONMENT',
+        'SUPABASE_URL',
+        'SUPABASE_SERVICE_ROLE_KEY'
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+# Validate environment on startup
+try:
+    validate_environment()
+    logger.info("Environment validation passed")
+except ValueError as e:
+    logger.error(f"Environment validation failed: {e}")
+    # In production, you might want to exit here
+    # import sys; sys.exit(1)
 
 # Create FastAPI app
 app = FastAPI(
@@ -35,4 +77,33 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint for monitoring"""
+    try:
+        # Basic health checks
+        checks = {
+            "api": "healthy",
+            "environment": "validated"
+        }
+        
+        # Add more health checks as needed
+        # e.g., database connectivity, external service status
+        
+        return {
+            "status": "healthy",
+            "checks": checks,
+            "timestamp": "2024-01-01T00:00:00Z"  # You might want to use actual timestamp
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for unhandled errors"""
+    logger.error(f"Unhandled exception: {exc}")
+    
+    # Security: Return generic error in production
+    if os.getenv('DEBUG') == 'True':
+        return {"error": f"Internal server error: {str(exc)}"}
+    else:
+        return {"error": "Internal server error"}

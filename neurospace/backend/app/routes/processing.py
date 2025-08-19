@@ -6,6 +6,8 @@ from app.services.nim_service import NIMService
 from app.services.pinecone_service import PineconeService
 from app.services.supabase_service import SupabaseService
 import uuid
+import os
+import re
 from datetime import datetime
 
 router = APIRouter()
@@ -14,12 +16,43 @@ nim_service = NIMService()
 pinecone_service = PineconeService()
 supabase_service = SupabaseService()
 
+# Security: Validate file key format
+def validate_file_key(file_key: str, user_id: str) -> bool:
+    """Validate file key to prevent path traversal attacks"""
+    # Check if file key starts with expected pattern
+    expected_prefix = f"uploads/{user_id}/"
+    if not file_key.startswith(expected_prefix):
+        return False
+    
+    # Check for path traversal attempts
+    if '..' in file_key or '/' in file_key[len(expected_prefix):]:
+        return False
+    
+    # Check for safe characters only
+    safe_pattern = re.compile(r'^[a-zA-Z0-9\-_\.]+$')
+    filename = file_key.split('/')[-1]
+    return bool(safe_pattern.match(filename))
+
+# Security: Validate file size
+def validate_file_size(file_path: str, max_size_mb: int = 50) -> bool:
+    """Validate file size to prevent memory exhaustion"""
+    try:
+        file_size = os.path.getsize(file_path)
+        max_size_bytes = max_size_mb * 1024 * 1024
+        return file_size <= max_size_bytes
+    except OSError:
+        return False
+
 @router.post("/process", response_model=FileProcessingResponse)
 async def process_file(request: FileUploadRequest):
     """
     Process uploaded file: download from S3, extract text, chunk it
     """
     try:
+        # Security: Validate file key
+        if not validate_file_key(request.file_key, request.user_id):
+            raise HTTPException(status_code=400, detail="Invalid file key")
+        
         # Generate job ID and file ID
         job_id = str(uuid.uuid4())
         file_id = str(uuid.uuid4())
@@ -30,13 +63,25 @@ async def process_file(request: FileUploadRequest):
             raise HTTPException(status_code=500, detail="Failed to download file from S3")
 
         try:
+            # Security: Validate file size after download
+            if not validate_file_size(local_file_path, max_size_mb=50):
+                raise HTTPException(status_code=400, detail="File too large for processing")
+
             # Extract text from file
             text = TextExtractor.extract_text(local_file_path, request.content_type)
             if not text:
                 raise HTTPException(status_code=400, detail="Failed to extract text from file")
 
+            # Security: Validate extracted text length
+            if len(text) > 10 * 1024 * 1024:  # 10MB text limit
+                raise HTTPException(status_code=400, detail="Extracted text too large")
+
             # Chunk the text
             chunks = TextExtractor.chunk_text(text)
+            
+            # Security: Limit number of chunks to prevent resource exhaustion
+            if len(chunks) > 1000:
+                raise HTTPException(status_code=400, detail="Too many text chunks generated")
             
             # Generate embeddings using Nvidia NIM API
             print(f"Generating embeddings for {len(chunks)} chunks...")
@@ -46,6 +91,8 @@ async def process_file(request: FileUploadRequest):
             valid_embeddings = []
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 if embedding:
+                    # Security: Limit chunk text length in metadata
+                    chunk_preview = chunk[:500] if len(chunk) > 500 else chunk
                     valid_embeddings.append({
                         'id': f"{request.file_key}_chunk_{i}",
                         'embedding': embedding,
@@ -54,7 +101,7 @@ async def process_file(request: FileUploadRequest):
                             'file_name': request.file_name,
                             'user_id': request.user_id,
                             'chunk_index': i,
-                            'text': chunk[:500],  # Store first 500 chars for reference
+                            'text': chunk_preview,
                             'content_type': request.content_type
                         }
                     })
@@ -66,6 +113,7 @@ async def process_file(request: FileUploadRequest):
                     print(f"Successfully stored {len(valid_embeddings)} embeddings in Pinecone")
                 else:
                     print("Failed to store embeddings in Pinecone")
+                    # Don't fail the entire process if Pinecone fails
             
             # Store metadata in Supabase
             file_record = {
@@ -100,13 +148,21 @@ async def process_file(request: FileUploadRequest):
         raise
     except Exception as e:
         print(f"Error processing file: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        # Security: Generic error message in production
+        if os.getenv('DEBUG') == 'True':
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        else:
+            raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/status/{job_id}")
 async def get_processing_status(job_id: str):
     """
     Get the status of a processing job
     """
+    # Security: Validate job_id format
+    if not re.match(r'^[a-f0-9\-]+$', job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+    
     # TODO: Implement job status tracking
     return {
         "job_id": job_id,
