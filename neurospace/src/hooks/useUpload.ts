@@ -1,0 +1,39 @@
+import { useState } from 'react';
+import { useAuth } from './useAuth';
+import { apiClient } from '@/utils/apiClient';
+
+export type UploadStatus = 'idle' | 'signing' | 'uploading' | 'processing' | 'done' | 'error';
+
+export function useUpload() {
+	const { getAuthHeader } = useAuth();
+	const [status, setStatus] = useState<UploadStatus>('idle');
+	const [error, setError] = useState<string | null>(null);
+
+	async function uploadFile(file: File) {
+		try {
+			setError(null);
+			setStatus('signing');
+			const headers = { 'Content-Type': 'application/json', ...(await getAuthHeader()) };
+			const { data: signData } = await apiClient.post('/api/upload', {
+				fileName: file.name,
+				fileType: file.type,
+				fileSize: file.size,
+			}, headers);
+
+			setStatus('uploading');
+			await fetch(signData.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+
+			setStatus('processing');
+			await apiClient.post('/api/process', { fileKey: signData.fileKey, fileName: file.name }, headers);
+
+			setStatus('done');
+			return { fileKey: signData.fileKey };
+		} catch (e: any) {
+			setStatus('error');
+			setError(e?.message || 'Upload failed');
+			throw e;
+		}
+	}
+
+	return { status, error, uploadFile };
+}

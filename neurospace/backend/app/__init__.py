@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import logging
+from app.config import settings
 
 # Load environment variables
 load_dotenv()
@@ -55,13 +56,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS using environment-driven origins
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=[frontend_origin],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Import routes
