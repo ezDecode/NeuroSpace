@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint && eslint --ext .ts,.tsx src",
+    "lint": "next lint && eslint src",
     "format": "prettier --write .",
     "prepare": "husky install"
   },
@@ -14,12 +14,12 @@
     "@clerk/nextjs": "^5.0.0",
     "@heroicons/react": "^2.1.5",
     "classnames": "^2.5.1",
-    "framer-motion": "^12.23.12",
+    "framer-motion": "^11.3.31",
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-dropzone": "^14.2.3",
-    "react-hot-toast": "^2.6.0",
+    "react-hot-toast": "^2.4.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
@@ -28,18 +28,14 @@
     "@typescript-eslint/parser": "^7.8.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.3",
-    "husky": "^8.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.0.11",
     "lint-staged": "^15.2.8",
     "prettier": "^3.3.3",
     "typescript": "5.4.5"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,css}": [
-      "prettier --write"
-    ]
+    "*.{ts,tsx,js,jsx}": ["eslint --fix", "prettier --write"],
+    "*.{json,md,css}": ["prettier --write"]
   }
 }

@@ -1,7 +1,10 @@
 import React from 'react';
 
+/* eslint-disable react/prop-types */
+
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 	variant?: 'primary' | 'secondary' | 'ghost';
+	className?: string;
 };
 
 export function Button({ variant = 'primary', className = '', ...props }: Props) {

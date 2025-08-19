@@ -67,7 +67,7 @@ export default function UploadPage() {
     });
   };
 
-  const uploadFileToS3 = async (file: File, index: number): Promise<{ fileKey: string }> => {
+  const uploadFileToS3 = async (file: File): Promise<{ fileKey: string }> => {
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,16 +95,17 @@ export default function UploadPage() {
   const handleUpload = async () => {
     if (files.length === 0) return;
     setUploading(true);
-    const uploadPromises = files.map(async (file, index) => {
+    const uploadPromises = files.map(async (file, idx) => {
       try {
-        setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 25 } : f));
-        const { fileKey } = await uploadFileToS3(file, index);
-        setFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 75, fileKey } : f));
+        setFiles(prev => prev.map((f, i) => i === idx ? { ...f, progress: 25 } : f));
+        const { fileKey } = await uploadFileToS3(file);
+        setFiles(prev => prev.map((f, i) => i === idx ? { ...f, progress: 75, fileKey } : f));
         processFile(fileKey, file.name).catch(() => {});
-        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success' as const, progress: 100 } : f));
+        setFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'success' as const, progress: 100 } : f));
         toast.success(`Uploaded ${file.name}`);
-      } catch (error: any) {
-        setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error' as const, error: error?.message || 'Upload failed' } : f));
+      } catch (error: unknown) {
+        const msg = (error as Error)?.message || 'Upload failed';
+        setFiles(prev => prev.map((f, i) => i === idx ? { ...f, status: 'error' as const, error: msg } : f));
         toast.error(`Failed to upload ${file.name}`);
       }
     });

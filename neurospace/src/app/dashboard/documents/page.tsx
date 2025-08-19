@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { 
   DocumentTextIcon, 
-  ClockIcon, 
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
   TrashIcon
 } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/Badge";

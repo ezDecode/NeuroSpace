@@ -1,25 +1,26 @@
 version: "3.9"
 services:
   frontend:
-    image: node:18
-    working_dir: /app
-    volumes:
-      - ./:/app
-    command: bash -lc "cd neurospace && npm install && npm run dev"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8000
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
     depends_on:
       - backend
-
-  backend:
-    image: python:3.11-slim
-    working_dir: /app/backend
     volumes:
       - ./:/app
-    command: bash -lc "pip install -r requirements.txt && python main.py"
-    ports:
-      - "8000:8000"
+      - /app/node_modules
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     env_file:
       - ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app

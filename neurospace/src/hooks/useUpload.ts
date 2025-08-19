@@ -4,6 +4,10 @@ import { apiClient } from '@/utils/apiClient';
 
 export type UploadStatus = 'idle' | 'signing' | 'uploading' | 'processing' | 'done' | 'error';
 
+type SignResponse = { signedUrl: string; fileKey: string; fileName: string };
+
+type ProcessResponse = { success: boolean };
+
 export function useUpload() {
 	const { getAuthHeader } = useAuth();
 	const [status, setStatus] = useState<UploadStatus>('idle');
@@ -14,7 +18,7 @@ export function useUpload() {
 			setError(null);
 			setStatus('signing');
 			const headers = { 'Content-Type': 'application/json', ...(await getAuthHeader()) };
-			const { data: signData } = await apiClient.post('/api/upload', {
+			const { data: signData } = await apiClient.post<SignResponse>('/api/upload', {
 				fileName: file.name,
 				fileType: file.type,
 				fileSize: file.size,
@@ -24,13 +28,14 @@ export function useUpload() {
 			await fetch(signData.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
 
 			setStatus('processing');
-			await apiClient.post('/api/process', { fileKey: signData.fileKey, fileName: file.name }, headers);
+			await apiClient.post<ProcessResponse>('/api/process', { fileKey: signData.fileKey, fileName: file.name }, headers);
 
 			setStatus('done');
 			return { fileKey: signData.fileKey };
-		} catch (e: any) {
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Upload failed';
 			setStatus('error');
-			setError(e?.message || 'Upload failed');
+			setError(msg);
 			throw e;
 		}
 	}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+
+type Reference = { file_name: string; score?: number };
 
 function TypingDots() {
 	return (
@@ -15,7 +17,7 @@ function TypingDots() {
 	);
 }
 
-function ReferenceChips({ refs }: { refs: { file_name: string; score?: number }[] }) {
+function ReferenceChips({ refs }: { refs: Reference[] }) {
 	if (!refs?.length) return null;
 	return (
 		<div className="mt-2 flex flex-wrap gap-2">
@@ -65,8 +67,7 @@ export default function ChatPage() {
 						<motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 							<div className={`max-w-xl px-4 py-3 rounded-2xl shadow-lg ${m.role === 'user' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-white text-gray-900'}`}>
 								{m.content}
-								{/* Optionally render refs if present */}
-								{(m as any).references && <ReferenceChips refs={(m as any).references} />}
+								{(m as unknown as { references?: Reference[] }).references && <ReferenceChips refs={(m as unknown as { references: Reference[] }).references} />}
 							</div>
 						</motion.div>
 					))}

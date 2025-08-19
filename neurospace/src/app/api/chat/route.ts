@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: data?.detail || 'Failed to get answer' }, { status: 500 });
 		}
 		return NextResponse.json(data);
-	} catch (e: any) {
-		return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 });
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : 'Server error';
+		return NextResponse.json({ error: msg }, { status: 500 });
 	}
 }
