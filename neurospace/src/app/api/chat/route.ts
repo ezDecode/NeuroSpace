@@ -12,9 +12,10 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: 'Invalid content' }, { status: 400 });
 		}
 		const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+		const key = process.env.BACKEND_API_KEY;
 		const resp = await fetch(`${backendUrl}/api/query/ask`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Backend-Key': key } : {}) },
 			body: JSON.stringify({ user_id: userId, question: content, top_k: topK }),
 		});
 		const data = await resp.json();
