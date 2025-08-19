@@ -3,12 +3,13 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from app.services.nim_service import NIMService
 from app.services.pinecone_service import PineconeService
+from app.deps import require_backend_key
 import time
 import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_backend_key)])
 
 class QueryRequest(BaseModel):
 	user_id: str
