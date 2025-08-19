@@ -1,0 +1,119 @@
+# 📝 PRD: AI-Powered Personal Knowledge Base
+
+## 🎯 Goal
+Build a modern AI-powered "Second Brain" app where users can upload documents (PDFs, notes), store them securely, and ask natural language queries. 
+System should retrieve knowledge context and answer using **Nvidia NIM API**.
+
+---
+
+## ⚡ Core Features (MVP – 2 weeks)
+1. **Authentication**
+   - Use Clerk for signup/login.
+   - Protect all routes with Clerk auth.
+
+2. **File Upload**
+   - Upload docs (PDF, text).
+   - Store securely in AWS S3 using signed URLs.
+   - Show uploaded files in dashboard with status.
+
+3. **Processing**
+   - FastAPI backend extracts text.
+   - Generate embeddings using Nvidia NIM API.
+   - Store embeddings in Pinecone.
+   - Store metadata in Supabase (Postgres).
+
+4. **QnA Chat**
+   - User enters query in chat UI.
+   - Backend converts query → embedding → Pinecone search → top chunks.
+   - Send chunks + query to NIM API → return answer.
+   - Display answer + references in chat bubble format.
+
+5. **Frontend**
+   - Next.js + Tailwind.
+   - Dashboard with file upload + file list.
+   - Chat-like UI for asking questions.
+   - Use **modern UI components only**.
+
+---
+
+## 🔒 Security Rules
+- API keys (NIM, Pinecone, Supabase, AWS) only in backend/env.  
+- Signed S3 uploads (no public bucket access).  
+- Clerk auth guards all routes.  
+- Supabase Row-Level Security (user can only access own docs).  
+
+---
+
+## 📂 Codebase Structure
+
+/frontend (Next.js + Tailwind + Clerk) /components (modern UI components) /app (Next.js routes) 
+
+/backend (FastAPI app) /routes (API endpoints) /services (NIM, Pinecone, S3 integrations) /db (Supabase models & queries) /shared (types, utils) /.env (API keys + configs)
+
+
+
+---
+
+## 🎨 UI Components (Modern Only)
+- **Auth/Onboarding** → Clerk + [Aceternity Heroes](https://ui.aceternity.com/components/heroes)  
+- **File Upload** → [MagicUI File Upload](https://magicui.design/components/file-upload)  
+- **File List** → [ReactBits Table](https://reactbits.dev/components/table)  
+- **Chat Interface** → [MagicUI Chat](https://magicui.design/components/chat)  
+- **Navigation** → [Aceternity Sidebar](https://ui.aceternity.com/components/sidebars)  
+- **Future (Phase 2)**: Graph visualization → [ReactBits Graph](https://reactbits.dev/components/graph), Cards → [Aceternity Cards](https://ui.aceternity.com/components/cards)  
+
+---
+
+## 🔮 Future Features (Phase 2)
+- Integrations (Google Drive, Notion, Browser Extension).  
+- Knowledge Visualization (auto mindmaps/graphs).  
+- AI-curated learning paths.  
+- Context-aware reminders.  
+- Team Mode (shared knowledge base + AI search).  
+
+---
+
+## 🛠 Tech Stack
+- **Frontend**: Next.js (App Router), Tailwind, Clerk, modern UI libs (Aceternity, MagicUI, ReactBits)  
+- **Backend**: FastAPI (Python)  
+- **Database**: PostgreSQL (Supabase)  
+- **Vector DB**: Pinecone  
+- **AI Model**: Nvidia NIM API  
+- **Storage**: AWS S3  
+- **Deploy**: Vercel (frontend), Railway/Render (backend)  
+
+---
+
+## 🔗 Workflow
+1. User uploads file → Clerk auth check → signed URL → S3.  
+2. FastAPI extracts text → NIM embeddings → Pinecone store.  
+3. Supabase stores metadata.  
+4. User asks query → embedding via NIM → Pinecone search → top chunks.  
+5. Chunks + query → NIM API → AI answer.  
+6. Answer displayed in modern chat UI with references.  
+
+---
+
+## 📅 Day-wise Development Plan (14 Days)
+
+### Week 1 (MVP Core)
+- **Day 1**: Next.js + Tailwind + Clerk auth.  
+- **Day 2**: Dashboard UI (sidebar, navbar, welcome hero).  
+- **Day 3**: File upload (MagicUI drag-drop) + S3 signed upload flow.  
+- **Day 4**: FastAPI backend + text extraction pipeline.  
+- **Day 5**: Embeddings via NIM API + Pinecone integration.  
+- **Day 6**: Store metadata in Supabase (with RLS).  
+- **Day 7**: Connect upload → process → store pipeline end-to-end.  
+
+### Week 2 (QnA + Polish)
+- **Day 8**: Build chat UI (MagicUI chat).  
+- **Day 9**: Implement query → embedding → Pinecone search flow.  
+- **Day 10**: Integrate NIM API for QnA answers.  
+- **Day 11**: Show answers in chat UI with references.  
+- **Day 12**: Add file list (ReactBits table) + status updates.  
+- **Day 13**: Security hardening (Clerk auth guard, signed uploads, env keys).  
+- **Day 14**: Final polish + deploy (Vercel + Railway).  
+
+✅ End of Day 14 → Fully usable MVP (upload → search → AI answers).  
+
+---
