@@ -67,11 +67,12 @@ app.add_middleware(
 )
 
 # Import routes
-from app.routes import files, processing
+from app.routes import files, processing, query
 
 # Include routers
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 app.include_router(processing.router, prefix="/api/processing", tags=["processing"])
+app.include_router(query.router, prefix="/api/query", tags=["query"])
 
 @app.get("/")
 async def root():
