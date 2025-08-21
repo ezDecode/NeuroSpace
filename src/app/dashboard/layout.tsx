@@ -1,15 +1,17 @@
 export const dynamic = 'force-dynamic';
 import Sidebar from '@/components/Sidebar';
-import Navbar from '@/components/Navbar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-black text-white">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">{children}</main>
-      </div>
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-6 lg:p-8">
+            {children}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
