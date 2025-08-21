@@ -11,10 +11,19 @@ import re
 from datetime import datetime
 
 router = APIRouter()
-s3_service = S3Service()
-nim_service = NIMService()
-pinecone_service = PineconeService()
-supabase_service = SupabaseService()
+
+# Use lazy initialization for services to avoid OpenAI client issues at startup
+def get_s3_service():
+    return S3Service()
+
+def get_nim_service():
+    return NIMService()
+
+def get_pinecone_service():
+    return PineconeService()
+
+def get_supabase_service():
+    return SupabaseService()
 
 # Security: Validate file key format
 def validate_file_key(file_key: str, user_id: str) -> bool:
@@ -52,6 +61,12 @@ async def process_file(request: FileUploadRequest):
         # Security: Validate file key
         if not validate_file_key(request.file_key, request.user_id):
             raise HTTPException(status_code=400, detail="Invalid file key")
+        
+        # Initialize services lazily
+        s3_service = get_s3_service()
+        nim_service = get_nim_service()
+        pinecone_service = get_pinecone_service()
+        supabase_service = get_supabase_service()
         
         # Generate job ID and file ID
         job_id = str(uuid.uuid4())

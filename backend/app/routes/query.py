@@ -20,13 +20,22 @@ class QueryResponse(BaseModel):
 	answer: str
 	references: List[Dict[str, Any]]
 
-nim_service = NIMService()
-pinecone_service = PineconeService()
+# Use lazy initialization for services
+def get_nim_service():
+    return NIMService()
+
+def get_pinecone_service():
+    return PineconeService()
 
 @router.post("/ask", response_model=QueryResponse)
 async def ask_question(payload: QueryRequest):
 	start = time.time()
 	logger.info("QnA: received question for user %s", payload.user_id)
+	
+	# Initialize services lazily
+	nim_service = get_nim_service()
+	pinecone_service = get_pinecone_service()
+	
 	# 1) Embed query
 	embedding = await nim_service.generate_embedding(payload.question)
 	if not embedding:

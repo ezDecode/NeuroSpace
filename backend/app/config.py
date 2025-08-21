@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
 	# AWS
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
 
 	# Nvidia NIM
 	nvidia_nim_api_key: str = Field(..., env="NVIDIA_NIM_API_KEY")
-	nvidia_nim_base_url: str = Field("https://api.nvcf.nvidia.com", env="NVIDIA_NIM_BASE_URL")
+	nvidia_nim_base_url: str = Field("https://integrate.api.nvidia.com/v1", env="NVIDIA_NIM_BASE_URL")
 
 	# Pinecone
 	pinecone_api_key: str = Field(..., env="PINECONE_API_KEY")
@@ -24,7 +25,8 @@ class Settings(BaseSettings):
 	app_env: str = Field("development", env="APP_ENV")
 	debug: bool = Field(True, env="DEBUG")
 
-	class Config:
-		env_file = ".env"
+	model_config = {
+		"env_file": ".env"
+	}
 
 settings = Settings()

@@ -27,7 +27,7 @@ class PineconeService:
                 # Create new index
                 pinecone.create_index(
                     name=self.index_name,
-                    dimension=1536,  # Adjust based on your embedding model
+                    dimension=1024,  # Adjust based on your embedding model
                     metric='cosine'
                 )
                 return pinecone.Index(self.index_name)

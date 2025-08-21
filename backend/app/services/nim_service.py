@@ -2,15 +2,21 @@ import os
 import requests
 import json
 from typing import List, Optional
+from openai import OpenAI
 
 class NIMService:
     def __init__(self):
         self.api_key = os.getenv('NVIDIA_NIM_API_KEY')
-        self.base_url = os.getenv('NVIDIA_NIM_BASE_URL', 'https://api.nvcf.nvidia.com')
+        self.base_url = os.getenv('NVIDIA_NIM_BASE_URL', 'https://integrate.api.nvidia.com/v1')
         self.headers = {
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         }
+        # Initialize OpenAI client with NVIDIA endpoint
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key
+        )
 
     async def generate_embedding(self, text: str) -> Optional[List[float]]:
         """
@@ -102,30 +108,63 @@ class NIMService:
         Generate an answer using NIM chat completion given a question and context.
         """
         try:
-            url = f"{self.base_url}/v1/chat/completions"
             system_prompt = (
                 "You are a helpful assistant that answers based strictly on the provided CONTEXT.\n"
                 "If the answer isn't contained in the context, say you don't have enough information.\n"
                 "Cite relevant filenames if provided in the context metadata."
             )
-            payload = {
-                "model": "meta/llama-3.1-70b-instruct",
-                "messages": [
+            
+            completion = self.client.chat.completions.create(
+                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"}
                 ],
-                "temperature": 0.2,
-                "max_tokens": 512
-            }
-            response = requests.post(url, headers=self.headers, json=payload)
-            if response.status_code == 200:
-                result = response.json()
-                if 'choices' in result and len(result['choices']) > 0:
-                    return result['choices'][0].get('message', {}).get('content', '').strip()
-                return None
-            else:
-                print(f"NIM API error: {response.status_code} - {response.text}")
-                return None
+                temperature=0.6,
+                top_p=0.95,
+                max_tokens=65536,
+                frequency_penalty=0,
+                presence_penalty=0,
+                stream=False  # Set to False for non-streaming response
+            )
+            
+            if completion.choices and len(completion.choices) > 0:
+                return completion.choices[0].message.content.strip()
+            return None
+            
         except Exception as e:
             print(f"Error generating answer with NIM API: {e}")
             return None
+
+    async def generate_answer_stream(self, question: str, context: str):
+        """
+        Generate an answer using NIM chat completion with streaming response.
+        """
+        try:
+            system_prompt = (
+                "You are a helpful assistant that answers based strictly on the provided CONTEXT.\n"
+                "If the answer isn't contained in the context, say you don't have enough information.\n"
+                "Cite relevant filenames if provided in the context metadata."
+            )
+            
+            completion = self.client.chat.completions.create(
+                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"}
+                ],
+                temperature=0.6,
+                top_p=0.95,
+                max_tokens=65536,
+                frequency_penalty=0,
+                presence_penalty=0,
+                stream=True  # Enable streaming
+            )
+            
+            for chunk in completion:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
+                    
+        except Exception as e:
+            print(f"Error generating streaming answer with NIM API: {e}")
+            yield f"Error: {str(e)}"
