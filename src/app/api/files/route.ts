@@ -9,37 +9,25 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // TODO: Fetch files from Supabase via FastAPI backend
-    // For now, return mock data
-    const mockFiles = [
-      {
-        id: '1',
-        file_name: 'Sample Document.pdf',
-        file_size: 1024000,
-        content_type: 'application/pdf',
-        status: 'processed',
-        chunks_count: 15,
-        created_at: new Date().toISOString(),
-        processed_at: new Date().toISOString(),
+    // Call the backend API
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const response = await fetch(`${backendUrl}/api/files/`, {
+      headers: {
+        'X-User-ID': userId,
+        'Content-Type': 'application/json',
       },
-      {
-        id: '2',
-        file_name: 'Research Notes.txt',
-        file_size: 512000,
-        content_type: 'text/plain',
-        status: 'processing',
-        chunks_count: 0,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        processed_at: null,
-      },
-    ];
-
-    return NextResponse.json({
-      files: mockFiles,
-      total: mockFiles.length,
     });
+
+    if (!response.ok) {
+      throw new Error(`Backend responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching files:', error);
     return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
   }
 }
+
+
