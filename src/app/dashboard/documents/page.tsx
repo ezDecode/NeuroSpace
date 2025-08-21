@@ -38,6 +38,24 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const response = await fetch(`/api/files/${fileId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete file');
+      }
+      
+      // Remove the file from the local state
+      setFiles(prev => prev.filter(file => file.id !== fileId));
+    } catch (err) {
+      console.error('Error deleting file:', err);
+      // You could add a toast notification here
+    }
+  };
+
   const getStatusDisplay = (status: File['status']) => {
     const statusMap = {
       processed: { text: 'Processed', color: 'text-green-400' },
@@ -146,7 +164,8 @@ export default function DocumentsPage() {
                   {status.text}
                 </span>
                 <button
-                  className="p-1.5 text-white/40 group-hover:text-black/40 hover:!text-red-500 transition-all duration-300 transform hover:scale-110"
+                  onClick={() => handleDeleteFile(file.id)}
+                  className="p-1.5 text-white/40 group-hover:text-red-500 transition-all duration-300 transform hover:scale-110"
                   title="Delete document"
                 >
                   <TrashIcon className="h-4 w-4" />

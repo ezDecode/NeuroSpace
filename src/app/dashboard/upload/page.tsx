@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useUser } from '@clerk/nextjs';
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -35,6 +36,8 @@ const isValidFile = (obj: unknown): obj is File => {
 };
 
 export default function UploadPage() {
+  const { user } = useUser();
+  const userId = user?.id;
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -189,6 +192,41 @@ export default function UploadPage() {
     }
   };
 
+  const createFileRecord = async (fileKey: string, fileName: string, fileSize: number, fileType: string) => {
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendUrl}/api/files/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': userId,
+        },
+        body: JSON.stringify({
+          file_key: fileKey,
+          file_name: fileName,
+          user_id: userId,
+          file_size: fileSize,
+          content_type: fileType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create file record: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('File record created:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating file record:', error);
+      throw error;
+    }
+  };
+
   const processFile = async (fileKey: string, fileName: string) => {
     const response = await fetch('/api/process', {
       method: 'POST',
@@ -203,6 +241,10 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
+    if (!userId) {
+      toast.error('Please sign in to upload files');
+      return;
+    }
     if (files.length === 0) return;
     setUploading(true);
     
@@ -225,6 +267,10 @@ export default function UploadPage() {
         setFiles((prev) => prev.map((f, i) => (i === originalIndex ? { ...f, progress: 25 } : f)));
         const { fileKey } = await uploadFileToS3(fileWrapper);
         setFiles((prev) => prev.map((f, i) => (i === originalIndex ? { ...f, progress: 75, fileKey } : f)));
+        
+        // Create file record in the backend
+        await createFileRecord(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
+        
         processFile(fileKey, fileWrapper.name).catch(() => {});
         setFiles((prev) =>
           prev.map((f, i) => (i === originalIndex ? { ...f, status: 'success' as const, progress: 100 } : f)),
