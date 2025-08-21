@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { DocumentTextIcon, ChatBubbleLeftRightIcon, PlusIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, ChatBubbleLeftRightIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 export default function Dashboard() {

@@ -1,0 +1,8 @@
+.next
+node_modules
+*.config.js
+*.config.mjs
+*.config.ts
+out
+dist
+build

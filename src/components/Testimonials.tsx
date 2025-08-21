@@ -25,7 +25,7 @@ export default function Testimonials({ items }: TestimonialsProps) {
             transition={{ duration: 0.4, delay: idx * 0.05 }}
             className="rounded-xl border border-white/20 bg-white/5 p-6 sm:p-8"
           >
-            <blockquote className="text-white/80 leading-relaxed text-base sm:text-lg">"{t.quote}"</blockquote>
+            <blockquote className="text-white/80 leading-relaxed text-base sm:text-lg">&ldquo;{t.quote}&rdquo;</blockquote>
             <figcaption className="mt-4 text-sm sm:text-base text-white/60">
               <span className="font-semibold text-white">{t.author}</span> — {t.role}
             </figcaption>

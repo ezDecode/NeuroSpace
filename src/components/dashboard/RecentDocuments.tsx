@@ -5,6 +5,14 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 
+interface FileData {
+  id: string;
+  file_name: string;
+  status: string;
+  file_size: number;
+  created_at: string;
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function RecentDocuments() {
@@ -36,7 +44,7 @@ export default function RecentDocuments() {
               </Tr>
             </THead>
             <TBody>
-              {data?.files?.slice(0, 6).map((f: any) => (
+              {data?.files?.slice(0, 6).map((f: FileData) => (
                 <Tr key={f.id}>
                   <Td className="text-white">{f.file_name}</Td>
                   <Td>

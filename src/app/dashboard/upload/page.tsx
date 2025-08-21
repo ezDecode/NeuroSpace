@@ -24,14 +24,14 @@ interface FileWithPreview {
 }
 
 // Helper function to validate if an object is a valid File
-const isValidFile = (obj: any): obj is File => {
-  return obj && 
+const isValidFile = (obj: unknown): obj is File => {
+  return !!(obj && 
          obj instanceof File && 
-         typeof obj.name === 'string' && 
-         obj.name.length > 0 &&
-         typeof obj.type === 'string' &&
-         typeof obj.size === 'number' && 
-         obj.size > 0;
+         typeof (obj as File).name === 'string' && 
+         (obj as File).name.length > 0 &&
+         typeof (obj as File).type === 'string' &&
+         typeof (obj as File).size === 'number' && 
+         (obj as File).size > 0);
 };
 
 export default function UploadPage() {
@@ -47,7 +47,7 @@ export default function UploadPage() {
         }
       });
     };
-  }, []);
+  }, [files]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     console.log('Files dropped:', acceptedFiles);
@@ -56,11 +56,11 @@ export default function UploadPage() {
     const validFiles = acceptedFiles.filter(file => {
       if (!isValidFile(file)) {
         console.warn('Skipping invalid file:', {
-          name: (file as any)?.name || 'undefined',
-          type: (file as any)?.type || 'undefined',
-          size: (file as any)?.size || 'undefined'
+          name: (file as File)?.name || 'undefined',
+          type: (file as File)?.type || 'undefined',
+          size: (file as File)?.size || 'undefined'
         });
-        toast.error(`Invalid file: ${(file as any)?.name || 'Unknown'}`);
+        toast.error(`Invalid file: ${(file as File)?.name || 'Unknown'}`);
         return false;
       }
       return true;
@@ -131,10 +131,10 @@ export default function UploadPage() {
       if (!isValidFile(file)) {
         console.error('Invalid file object:', { 
           file: !!file,
-          name: (file as any)?.name || 'undefined', 
-          type: (file as any)?.type || 'undefined', 
-          size: (file as any)?.size || 'undefined',
-          isInstanceOfFile: (file as any) instanceof File,
+          name: (file as File)?.name || 'undefined', 
+          type: (file as File)?.type || 'undefined', 
+          size: (file as File)?.size || 'undefined',
+          isInstanceOfFile: (file as File) instanceof File,
           fileObject: file
         });
         throw new Error('Invalid file object - not a valid File instance or missing required properties');
@@ -215,7 +215,7 @@ export default function UploadPage() {
       return;
     }
     
-    const uploadPromises = validFiles.map(async (fileWrapper, idx) => {
+    const uploadPromises = validFiles.map(async (fileWrapper) => {
       try {
         console.log('Starting upload for file:', { name: fileWrapper.name, type: fileWrapper.type, size: fileWrapper.size });
         
