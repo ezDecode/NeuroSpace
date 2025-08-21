@@ -4,7 +4,7 @@ export function useAuth() {
   const { isSignedIn, user } = useUser();
   const { getToken, signOut } = useClerkAuth();
 
-  async function getAuthHeader() {
+  async function getAuthHeader(): Promise<Record<string, string>> {
     const token = await getToken({ template: 'default' });
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
