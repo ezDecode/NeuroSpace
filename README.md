@@ -415,6 +415,13 @@ DEBUG=True
 - **Backend**: Application logs
 - **Database**: Supabase logs
 
+## 📚 **Documentation**
+
+Additional documentation can be found in the [`docs/`](./docs/) folder:
+
+- [Week 1 Completion Report](./docs/WEEK1_COMPLETE.md) - Detailed progress report
+- [Codebase Summary](./docs/CODEBASE_SUMMARY.md) - Technical overview and architecture details
+
 ## 📄 **License**
 
 This project is licensed under the MIT License.

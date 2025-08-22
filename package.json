@@ -17,6 +17,7 @@
     "@pinecone-database/pinecone": "^6.1.2",
     "@tailwindcss/postcss": "^4.1.12",
     "classnames": "^2.5.1",
+    "express-rate-limit": "^8.0.1",
     "framer-motion": "^11.3.31",
     "next": "^15.4.7",
     "react": "^19.1.1",
