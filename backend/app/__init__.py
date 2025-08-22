@@ -46,8 +46,9 @@ try:
     logger.info("Environment validation passed")
 except ValueError as e:
     logger.error(f"Environment validation failed: {e}")
-    # In production, you might want to exit here
-    # import sys; sys.exit(1)
+    # Fail-closed in non-debug
+    if os.getenv('DEBUG') != 'True':
+        import sys; sys.exit(1)
 
 # Create FastAPI app
 app = FastAPI(
@@ -72,7 +73,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[frontend_origin],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Backend-Key"],
 )
 
