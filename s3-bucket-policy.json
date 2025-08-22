@@ -2,16 +2,49 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "AllowSignedUploads",
+            "Sid": "DenyInsecureTransport",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::YOUR_BUCKET_NAME",
+                "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+            ],
+            "Condition": {
+                "Bool": { "aws:SecureTransport": "false" }
+            }
+        },
+        {
+            "Sid": "DenyPublicAclsAndPolicy",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": [
+                "s3:PutBucketAcl",
+                "s3:PutObjectAcl",
+                "s3:PutBucketPolicy"
+            ],
+            "Resource": [
+                "arn:aws:s3:::YOUR_BUCKET_NAME",
+                "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+            ]
+        },
+        {
+            "Sid": "RequireSSE",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": ["s3:PutObject"],
+            "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*",
+            "Condition": {
+                "Null": {"s3:x-amz-server-side-encryption": "true"}
+            }
+        },
+        {
+            "Sid": "AllowAppUploadsToUserPrefix",
             "Effect": "Allow",
             "Principal": {
-                "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:user/YOUR_IAM_USER"
+                "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_APP_ROLE"
             },
-            "Action": [
-                "s3:PutObject",
-                "s3:PutObjectAcl",
-                "s3:GetObject"
-            ],
+            "Action": ["s3:PutObject", "s3:GetObject"],
             "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/uploads/*"
         }
     ]

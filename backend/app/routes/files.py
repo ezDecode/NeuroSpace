@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 import os
 from app.models.file import FileUploadRequest
-from app.deps import get_current_user
+from app.deps import get_verified_user, require_backend_key
 from app.services.supabase_service import SupabaseService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_backend_key)])
 supabase_service = SupabaseService()
 
 @router.get("/")
-async def list_files(current_user: str = Depends(get_current_user)):
+async def list_files(current_user: str = Depends(get_verified_user)):
     """
     List all files for the authenticated user
     """
@@ -37,7 +37,7 @@ async def list_files(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch files: {str(e)}")
 
 @router.post("/")
-async def create_file(file_data: FileUploadRequest, current_user: str = Depends(get_current_user)):
+async def create_file(file_data: FileUploadRequest, current_user: str = Depends(get_verified_user)):
     """
     Create a new file record in the database
     """
@@ -65,7 +65,7 @@ async def create_file(file_data: FileUploadRequest, current_user: str = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to create file: {str(e)}")
 
 @router.get("/{file_id}")
-async def get_file(file_id: str, current_user: str = Depends(get_current_user)):
+async def get_file(file_id: str, current_user: str = Depends(get_verified_user)):
     """
     Get file details by ID
     """
@@ -99,7 +99,7 @@ async def get_file(file_id: str, current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to fetch file: {str(e)}")
 
 @router.delete("/{file_id}")
-async def delete_file(file_id: str, current_user: str = Depends(get_current_user)):
+async def delete_file(file_id: str, current_user: str = Depends(get_verified_user)):
     """
     Delete a file by ID
     """

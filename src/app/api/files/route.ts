@@ -4,16 +4,21 @@ import { auth } from '@clerk/nextjs/server';
 export async function GET() {
   try {
     // Verify authentication
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const jwt = await getToken?.({ template: 'default' });
+    if (!jwt) {
+      return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
     // Call the backend API
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     const response = await fetch(`${backendUrl}/api/files/`, {
       headers: {
-        'X-User-ID': userId,
+        'Authorization': `Bearer ${jwt}`,
+        ...(process.env.BACKEND_API_KEY ? { 'X-Backend-Key': process.env.BACKEND_API_KEY } : {}),
         'Content-Type': 'application/json',
       },
     });
