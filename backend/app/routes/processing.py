@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.file import FileUploadRequest, FileProcessingResponse
 from app.services.s3_service import S3Service
 from app.services.text_extractor import TextExtractor
@@ -9,8 +9,9 @@ import uuid
 import os
 import re
 from datetime import datetime
+from app.deps import get_verified_user, require_backend_key
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_backend_key)])
 
 # Use lazy initialization for services to avoid OpenAI client issues at startup
 def get_s3_service():
@@ -53,11 +54,15 @@ def validate_file_size(file_path: str, max_size_mb: int = 50) -> bool:
         return False
 
 @router.post("/process", response_model=FileProcessingResponse)
-async def process_file(request: FileUploadRequest):
+async def process_file(request: FileUploadRequest, current_user: str = Depends(get_verified_user)):
     """
     Process uploaded file: download from S3, extract text, chunk it
     """
     try:
+        # Verify the user in payload matches the authenticated user
+        if request.user_id != current_user:
+            raise HTTPException(status_code=403, detail="Not authorized to process this user's file")
+        
         # Security: Validate file key
         if not validate_file_key(request.file_key, request.user_id):
             raise HTTPException(status_code=400, detail="Invalid file key")
@@ -170,7 +175,7 @@ async def process_file(request: FileUploadRequest):
             raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/status/{job_id}")
-async def get_processing_status(job_id: str):
+async def get_processing_status(job_id: str, current_user: str = Depends(get_verified_user)):
     """
     Get the status of a processing job
     """

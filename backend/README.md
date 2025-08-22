@@ -62,7 +62,13 @@ NVIDIA_NIM_BASE_URL=https://api.nvcf.nvidia.com
 # Pinecone
 PINECONE_API_KEY=your_pinecone_api_key_here
 PINECONE_ENVIRONMENT=your_pinecone_environment_here
-PINECONE_INDEX_NAME=neurospace-embeddings
+
+# Clerk JWT verification (one of the following is required)
+# Prefer CLERK_ISSUER if you have a custom domain; JWKS URL will be derived
+# Otherwise, set CLERK_JWKS_URL explicitly
+CLERK_ISSUER=https://your-clerk-domain.clerk.accounts.dev
+# CLERK_JWKS_URL=https://your-clerk-domain.clerk.accounts.dev/.well-known/jwks.json
+# Optional audience verification can be added later
 
 # Supabase
 SUPABASE_URL=your_supabase_url_here

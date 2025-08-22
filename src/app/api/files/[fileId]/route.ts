@@ -7,9 +7,13 @@ export async function DELETE(
 ) {
   try {
     // Verify authentication
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const jwt = await getToken?.({ template: 'default' });
+    if (!jwt) {
+      return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
     const { fileId } = params;
@@ -23,7 +27,8 @@ export async function DELETE(
     const response = await fetch(`${backendUrl}/api/files/${fileId}`, {
       method: 'DELETE',
       headers: {
-        'X-User-ID': userId,
+        'Authorization': `Bearer ${jwt}`,
+        ...(process.env.BACKEND_API_KEY ? { 'X-Backend-Key': process.env.BACKEND_API_KEY } : {}),
         'Content-Type': 'application/json',
       },
     });

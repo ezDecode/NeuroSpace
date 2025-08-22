@@ -4,9 +4,13 @@ import { auth } from '@clerk/nextjs/server';
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const jwt = await getToken?.({ template: 'default' });
+    if (!jwt) {
+      return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
     const { fileKey, fileName } = await request.json();
@@ -23,6 +27,8 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          ...(process.env.BACKEND_API_KEY ? { 'X-Backend-Key': process.env.BACKEND_API_KEY } : {}),
         },
         body: JSON.stringify({
           file_key: fileKey,

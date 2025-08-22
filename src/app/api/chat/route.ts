@@ -3,10 +3,14 @@ import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user authentication without JWT template
-    const { userId } = await auth();
+    // Get user authentication and token
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const jwt = await getToken?.({ template: 'default' });
+    if (!jwt) {
+      return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
     const { content, topK = 5 } = await request.json();
@@ -22,8 +26,7 @@ export async function POST(request: NextRequest) {
       headers: { 
         'Content-Type': 'application/json',
         ...(key ? { 'X-Backend-Key': key } : {}),
-        // Send user ID in header instead of JWT
-        'X-User-ID': userId
+        'Authorization': `Bearer ${jwt}`
       },
       body: JSON.stringify({ 
         user_id: userId, 

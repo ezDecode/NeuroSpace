@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from app.services.nim_service import NIMService
 from app.services.pinecone_service import PineconeService
-from app.deps import require_backend_key
+from app.deps import require_backend_key, get_verified_user
 import time
 import logging
 
@@ -28,9 +28,11 @@ def get_pinecone_service():
     return PineconeService()
 
 @router.post("/ask", response_model=QueryResponse)
-async def ask_question(payload: QueryRequest):
+async def ask_question(payload: QueryRequest, current_user: str = Depends(get_verified_user)):
 	start = time.time()
 	logger.info("QnA: received question for user %s", payload.user_id)
+	if payload.user_id != current_user:
+		raise HTTPException(status_code=403, detail="Not authorized for this user")
 	
 	# Initialize services lazily
 	nim_service = get_nim_service()

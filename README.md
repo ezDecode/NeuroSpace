@@ -381,6 +381,10 @@ http://localhost:8000/health
 - `WEEK1_COMPLETE.md` - Development progress
 - `backend/README.md` - Backend-specific guide
 
+## Auth and backend protection
+- Frontend Next API routes send `Authorization: Bearer <Clerk JWT>` and `X-Backend-Key` to the FastAPI backend.
+- Backend verifies the JWT using Clerk JWKS (configure `CLERK_ISSUER` or `CLERK_JWKS_URL`) and gates all routers with `BACKEND_API_KEY`.
+
 ### **API Documentation**
 
 - **Frontend API**: Next.js API routes
