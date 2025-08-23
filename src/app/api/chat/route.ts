@@ -8,7 +8,9 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const jwt = await getToken?.({ template: 'default' });
+    
+    // Get JWT token without template parameter
+    const jwt = await getToken();
     if (!jwt) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
 
     if (!resp.ok) {
       const errorData = await resp.json().catch(() => ({}));
+      console.error('Backend error:', resp.status, errorData);
       return NextResponse.json({ 
         error: errorData?.detail || `Backend error: ${resp.status}` 
       }, { status: 500 });

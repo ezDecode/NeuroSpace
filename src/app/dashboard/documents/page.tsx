@@ -17,6 +17,8 @@ import {
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
+import { PageLoading, ErrorState, EmptyState, StatusBadge, GridSkeleton } from '@/components/ui/LoadingStates';
 
 interface File {
   id: string;
@@ -44,6 +46,7 @@ export default function DocumentsPage() {
   const fetchFiles = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch('/api/files');
       if (!response.ok) throw new Error('Failed to fetch files');
       const data = await response.json();
@@ -79,30 +82,22 @@ export default function DocumentsPage() {
     const statusMap = {
       processed: { 
         text: 'Processed', 
-        color: 'text-green-400',
-        bgColor: 'bg-green-400/10',
-        borderColor: 'border-green-400/20',
+        status: 'success' as const,
         icon: CheckCircleIcon
       },
       processing: { 
         text: 'Processing', 
-        color: 'text-yellow-400',
-        bgColor: 'bg-yellow-400/10',
-        borderColor: 'border-yellow-400/20',
+        status: 'warning' as const,
         icon: ClockIcon
       },
       error: { 
         text: 'Error', 
-        color: 'text-red-400',
-        bgColor: 'bg-red-400/10',
-        borderColor: 'border-red-400/20',
+        status: 'error' as const,
         icon: ExclamationTriangleIcon
       },
       uploaded: { 
         text: 'Uploaded', 
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-400/10',
-        borderColor: 'border-blue-400/20',
+        status: 'info' as const,
         icon: DocumentTextIcon
       },
     };
@@ -143,73 +138,63 @@ export default function DocumentsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className={componentClasses.layout.page}>
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">Documents</h1>
+          <h1 className={designTokens.typography.h1}>Documents</h1>
         </div>
-        <div className="text-center py-12">
-          <div className="spinner mx-auto mb-4"></div>
-          <div className="text-white/60">Loading documents...</div>
-        </div>
+        <GridSkeleton count={6} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className={componentClasses.layout.page}>
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">Documents</h1>
+          <h1 className={designTokens.typography.h1}>Documents</h1>
         </div>
-        <div className="text-center py-12">
-          <div className="text-red-400 mb-4">{error}</div>
-          <button 
-            onClick={fetchFiles}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <ErrorState 
+          title="Failed to load documents"
+          message={error}
+          onRetry={fetchFiles}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={componentClasses.layout.page}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-white">Documents</h1>
+          <h1 className={designTokens.typography.h1}>Documents</h1>
           <p className="text-white/60">Manage your uploaded files and knowledge base</p>
         </div>
-        <Link
-          href="/dashboard/upload"
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
-        >
-          <PlusIcon className="h-4 w-4" />
+        <Link href="/dashboard/upload" className={getButtonClass('primary')}>
+          <PlusIcon className="h-4 w-4 mr-2" />
           <span>Upload Files</span>
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+      <div className={componentClasses.layout.gridStats}>
+        <div className={getCardClass()}>
           <div className="text-2xl font-bold text-white">{files.length}</div>
           <div className="text-sm text-white/60">Total Files</div>
         </div>
-        <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+        <div className={getCardClass()}>
           <div className="text-2xl font-bold text-green-400">
             {files.filter(f => f.status === 'processed').length}
           </div>
           <div className="text-sm text-white/60">Processed</div>
         </div>
-        <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+        <div className={getCardClass()}>
           <div className="text-2xl font-bold text-yellow-400">
             {files.filter(f => f.status === 'processing').length}
           </div>
           <div className="text-sm text-white/60">Processing</div>
         </div>
-        <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+        <div className={getCardClass()}>
           <div className="text-2xl font-bold text-white">
             {formatFileSize(files.reduce((acc, f) => acc + f.file_size, 0))}
           </div>
@@ -273,32 +258,28 @@ export default function DocumentsPage() {
 
       {/* Files Display */}
       {filteredFiles.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <DocumentTextIcon className="h-8 w-8 text-white/40" />
-          </div>
-          <h3 className="text-lg font-medium text-white mb-2">No files found</h3>
-          <p className="text-white/60 mb-4">
-            {searchTerm || filterStatus !== 'all' 
+        <EmptyState
+          title="No files found"
+          message={
+            searchTerm || filterStatus !== 'all' 
               ? 'Try adjusting your search or filters'
               : 'Upload your first document to get started'
-            }
-          </p>
-          {!searchTerm && filterStatus === 'all' && (
-            <Link
-              href="/dashboard/upload"
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Upload Files</span>
-            </Link>
-          )}
-        </div>
+          }
+          icon={DocumentTextIcon}
+          action={
+            !searchTerm && filterStatus === 'all' ? (
+              <Link href="/dashboard/upload" className={getButtonClass('primary')}>
+                <PlusIcon className="h-4 w-4 mr-2" />
+                <span>Upload Files</span>
+              </Link>
+            ) : undefined
+          }
+        />
       ) : viewMode === 'table' ? (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10">
+              <tr className="border-b border-white/20">
                 <th className="text-left py-4 px-4 text-white/60 font-medium">File</th>
                 <th className="text-left py-4 px-4 text-white/60 font-medium">Size</th>
                 <th className="text-left py-4 px-4 text-white/60 font-medium">Status</th>
@@ -319,7 +300,7 @@ export default function DocumentsPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      className="border-b border-white/10 hover:bg-white/5 transition-colors"
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
@@ -332,10 +313,10 @@ export default function DocumentsPage() {
                       </td>
                       <td className="py-4 px-4 text-white/60">{formatFileSize(file.file_size)}</td>
                       <td className="py-4 px-4">
-                        <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full ${status.bgColor} ${status.borderColor} border`}>
-                          <StatusIcon className={`h-3 w-3 ${status.color}`} />
-                          <span className={`text-xs font-medium ${status.color}`}>{status.text}</span>
-                        </div>
+                        <StatusBadge status={status.status}>
+                          <StatusIcon className="h-3 w-3" />
+                          <span className="text-xs font-medium">{status.text}</span>
+                        </StatusBadge>
                       </td>
                       <td className="py-4 px-4 text-white/60 text-sm">{formatDate(file.created_at)}</td>
                       <td className="py-4 px-4">
@@ -375,14 +356,14 @@ export default function DocumentsPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5"
+                  className={getCardClass(true)}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="text-3xl">{getFileIcon(file.content_type)}</div>
-                    <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full ${status.bgColor} ${status.borderColor} border`}>
-                      <StatusIcon className={`h-3 w-3 ${status.color}`} />
-                      <span className={`text-xs font-medium ${status.color}`}>{status.text}</span>
-                    </div>
+                    <StatusBadge status={status.status}>
+                      <StatusIcon className="h-3 w-3" />
+                      <span className="text-xs font-medium">{status.text}</span>
+                    </StatusBadge>
                   </div>
                   
                   <div className="space-y-2 mb-4">
