@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { fileId: string } }
+  { params }: { params: Promise<{ fileId: string }> }
 ) {
   try {
     // Verify authentication
@@ -16,7 +16,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
-    const { fileId } = params;
+    const { fileId } = await params;
 
     if (!fileId) {
       return NextResponse.json({ error: 'File ID is required' }, { status: 400 });

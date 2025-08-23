@@ -8,7 +8,7 @@ import {
   BellIcon,
   ShieldCheckIcon,
   TrashIcon,
-  DownloadIcon,
+  ArrowDownTrayIcon,
   EyeIcon,
   EyeSlashIcon,
   SparklesIcon,
@@ -349,7 +349,7 @@ export default function SettingsPage() {
                     {/* Export Data */}
                     <div className="flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5">
                       <div className="flex items-center space-x-3">
-                        <DownloadIcon className="h-5 w-5 text-white" />
+                        <ArrowDownTrayIcon className="h-5 w-5 text-white" />
                         <div>
                           <h3 className="text-white font-medium">Export Data</h3>
                           <p className="text-white/60 text-sm">Download all your data and documents</p>

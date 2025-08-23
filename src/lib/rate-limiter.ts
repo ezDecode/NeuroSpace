@@ -32,7 +32,6 @@ class RateLimiter {
     const forwarded = request.headers.get('x-forwarded-for');
     const ip = forwarded?.split(',')[0] || 
                request.headers.get('x-real-ip') || 
-               request.ip || 
                'unknown';
     
     // Add user agent as secondary identifier to prevent simple IP spoofing

@@ -6,8 +6,8 @@ import {
   DocumentTextIcon,
   ChatBubbleLeftRightIcon,
   ClockIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   SparklesIcon,
   EyeIcon,
   ArrowUpIcon,
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-white">Usage Trends</h3>
-            <TrendingUpIcon className="h-5 w-5 text-white/60" />
+            <ArrowTrendingUpIcon className="h-5 w-5 text-white/60" />
           </div>
           
           <div className="space-y-4">
