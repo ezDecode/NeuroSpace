@@ -164,9 +164,9 @@ export default function Dashboard() {
         {stats.map((stat, index) => (
           <motion.div
             key={stat.title}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
+                      initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
             className={getCardClass(true)}
           >
             <div className="flex items-center justify-between mb-4">
@@ -215,7 +215,7 @@ export default function Dashboard() {
                 className={`group block ${getCardClass(true)} ${action.gradient}`}
               >
                 <div className="flex items-start space-x-4">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                  <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:rotate-12 group-hover:shadow-lg group-hover:shadow-blue-400/30 transition-all duration-300`}>
                     <action.icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">

@@ -81,14 +81,43 @@ body {
   }
 }
 
-@keyframes scale-in {
+@keyframes slide-in-right {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateX(-20px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.2);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }
 
@@ -169,8 +198,20 @@ body {
   animation: slide-right 0.6s ease-out forwards;
 }
 
-.animate-scale-in {
-  animation: scale-in 0.4s ease-out forwards;
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
 }
 
 .animate-pulse-glow {
@@ -276,21 +317,47 @@ body {
   background-clip: text;
 }
 
-/* Micro-interaction utilities */
-.hover-lift {
-  transition: transform 0.2s ease-out;
+/* Enhanced Micro-interaction utilities */
+.hover-slide-right {
+  transition: transform 0.3s ease-out;
 }
 
-.hover-lift:hover {
-  transform: translateY(-2px);
+.hover-slide-right:hover {
+  transform: translateX(4px);
 }
 
-.hover-scale {
-  transition: transform 0.2s ease-out;
+.hover-rotate {
+  transition: transform 0.3s ease-out;
 }
 
-.hover-scale:hover {
-  transform: scale(1.05);
+.hover-rotate:hover {
+  transform: rotate(3deg);
+}
+
+.hover-brighten {
+  transition: filter 0.3s ease-out;
+}
+
+.hover-brighten:hover {
+  filter: brightness(1.1);
+}
+
+.hover-glow {
+  transition: all 0.3s ease-out;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.hover-blur-backdrop {
+  transition: all 0.3s ease-out;
+}
+
+.hover-blur-backdrop:hover {
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .hover-glow {
@@ -330,8 +397,10 @@ body {
 }
 
 .card-micro:hover {
-  transform: scale(1.02) translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 15px 35px rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  backdrop-filter: blur(8px);
 }
 
 /* Input micro-interactions */
@@ -340,8 +409,9 @@ body {
 }
 
 .input-micro:focus {
-  transform: scale(1.01);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+  transform: translateX(2px);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  backdrop-filter: blur(4px);
 }
 
 /* Loading states */

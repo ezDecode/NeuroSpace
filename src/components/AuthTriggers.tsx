@@ -19,8 +19,8 @@ const StyledButton = ({
   disabled?: boolean;
 }) => (
   <motion.button
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
+    whileHover={{ x: 4, filter: "brightness(1.1)" }}
+    whileTap={{ x: 0, filter: "brightness(0.95)" }}
     onClick={onClick}
     disabled={disabled}
     className={`inline-flex items-center justify-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
@@ -129,9 +129,9 @@ export function AuthModalWrapper({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 20 }}
         className="relative w-full max-w-md p-8 rounded-2xl border border-white/10 bg-black/95 backdrop-blur-xl"
       >
         {(title || subtitle) && (

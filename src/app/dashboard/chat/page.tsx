@@ -141,10 +141,10 @@ export default function ChatPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
                 onClick={() => setInput(prompt.prompt)}
-                className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5"
+                className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 text-left hover:translate-x-1 hover:border-white/30 hover:shadow-xl hover:shadow-blue-400/10"
               >
                 <div className="flex items-start space-x-4">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${prompt.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                                      <div className={`w-12 h-12 bg-gradient-to-br ${prompt.color} rounded-xl flex items-center justify-center group-hover:rotate-12 group-hover:shadow-lg group-hover:shadow-blue-400/30 transition-all duration-300`}>
                     <prompt.icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">
@@ -174,8 +174,8 @@ export default function ChatPage() {
                 {m.role === 'user' ? (
                   <div className="flex justify-end">
                     <motion.div 
-                      initial={{ scale: 0.95 }}
-                      animate={{ scale: 1 }}
+                      initial={{ x: 20, opacity: 0.8 }}
+                      animate={{ x: 0, opacity: 1 }}
                       className="max-w-3xl"
                     >
                       <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl px-6 py-4 shadow-lg">
@@ -186,8 +186,8 @@ export default function ChatPage() {
                 ) : (
                   <div className="flex justify-start">
                     <motion.div 
-                      initial={{ scale: 0.95 }}
-                      animate={{ scale: 1 }}
+                      initial={{ x: -20, opacity: 0.8 }}
+                      animate={{ x: 0, opacity: 1 }}
                       className="max-w-4xl"
                     >
                       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-4 shadow-lg">
@@ -264,7 +264,7 @@ export default function ChatPage() {
               <button
                 onClick={handleSend}
                 disabled={loading || !input.trim() || isTyping}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:rotate-12 hover:shadow-lg hover:shadow-blue-400/40 disabled:hover:rotate-0 shadow-lg"
               >
                 <PaperAirplaneIcon className="h-4 w-4" />
               </button>

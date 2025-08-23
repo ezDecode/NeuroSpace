@@ -66,7 +66,7 @@ export default function Sidebar() {
 
       {/* Mobile toggle button */}
       <button
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-xl bg-gray-900/80 border border-gray-600 text-white hover:bg-white hover:text-black transition-all duration-300 transform hover:scale-110 backdrop-blur-sm"
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-xl bg-gray-900/80 border border-gray-600 text-white hover:bg-white hover:text-black transition-all duration-300 hover:rotate-12 hover:shadow-lg hover:shadow-blue-400/30 backdrop-blur-sm"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <XMarkIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
@@ -96,7 +96,7 @@ export default function Sidebar() {
             </div>
           </div>
           <button
-            className="hidden lg:block p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-all duration-300 hover:scale-110"
+            className="hidden lg:block p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-all duration-300 hover:rotate-180"
             onClick={() => setCollapsed(!collapsed)}
           >
             <Bars3Icon className="h-4 w-4" />
@@ -142,7 +142,7 @@ export default function Sidebar() {
               key={action.name}
               href={action.href}
               className={clsx(
-                'flex items-center space-x-3 w-full p-3 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-white/10 bg-gray-800 border border-gray-600',
+                'flex items-center space-x-3 w-full p-3 rounded-xl transition-all duration-300 hover:translate-x-1 hover:shadow-lg hover:shadow-blue-400/20 hover:border-blue-400/30 bg-gray-800 border border-gray-600',
                 { 'justify-center': collapsed }
               )}
               style={{ animationDelay: `${index * 100}ms` }}
@@ -163,7 +163,7 @@ export default function Sidebar() {
                   key={item.name}
                   href={item.href}
                   className={clsx(
-                    'group flex items-center space-x-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 relative overflow-hidden',
+                    'group flex items-center space-x-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-300 hover:translate-x-1 hover:backdrop-blur-sm relative overflow-hidden',
                     {
                       'bg-white text-black shadow-lg': isActive,
                       'text-gray-300 hover:text-white hover:bg-gray-800': !isActive,
@@ -225,7 +225,7 @@ export default function Sidebar() {
           <Link
             href="/dashboard/upload"
             className={clsx(
-              'flex items-center justify-center space-x-2 w-full p-3 rounded-xl bg-gray-800 border border-gray-600 text-white hover:bg-gray-700 transition-all duration-300 text-sm font-medium transform hover:scale-105 hover:shadow-lg',
+              'flex items-center justify-center space-x-2 w-full p-3 rounded-xl bg-gray-800 border border-gray-600 text-white hover:bg-gray-700 transition-all duration-300 text-sm font-medium hover:translate-x-1 hover:shadow-lg hover:shadow-blue-400/20',
               { 'px-3': collapsed }
             )}
           >
