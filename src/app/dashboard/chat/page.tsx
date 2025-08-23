@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { 
+  PaperAirplaneIcon, 
+  SparklesIcon,
+  DocumentTextIcon,
+  MagnifyingGlassIcon,
+  LightBulbIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Reference = { file_name: string; score?: number };
@@ -10,9 +17,9 @@ type Reference = { file_name: string; score?: number };
 function TypingDots() {
   return (
     <div className="flex gap-1 items-center">
-      <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce [animation-delay:-0.2s]"></span>
-      <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce"></span>
-      <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+      <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:-0.2s]"></span>
+      <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce"></span>
+      <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce [animation-delay:0.2s]"></span>
     </div>
   );
 }
@@ -20,32 +27,79 @@ function TypingDots() {
 function ReferenceChips({ refs }: { refs: Reference[] }) {
   if (!refs?.length) return null;
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {refs.map((r, idx) => (
-        <span
-          key={`${r.file_name}-${idx}`}
-          className="text-xs px-2 py-1 rounded-md bg-white/10 text-white/70 border border-white/20"
-        >
-          📄 {r.file_name}
-        </span>
-      ))}
+    <div className="mt-4 space-y-2">
+      <div className="text-xs text-white/50 font-medium">Sources:</div>
+      <div className="flex flex-wrap gap-2">
+        {refs.map((r, idx) => (
+          <span
+            key={`${r.file_name}-${idx}`}
+            className="inline-flex items-center space-x-1 text-xs px-3 py-1.5 rounded-full bg-white/10 text-white/70 border border-white/20 hover:bg-white/20 transition-colors duration-200"
+          >
+            <DocumentTextIcon className="h-3 w-3" />
+            <span>{r.file_name}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
+const quickPrompts = [
+  {
+    title: 'Summarize documents',
+    description: 'Get key insights from your uploaded files',
+    prompt: 'Summarize the key points from my documents',
+    icon: DocumentTextIcon,
+    color: 'from-blue-500 to-cyan-500'
+  },
+  {
+    title: 'Search knowledge base',
+    description: 'Find specific information quickly',
+    prompt: 'Find information about',
+    icon: MagnifyingGlassIcon,
+    color: 'from-purple-500 to-pink-500'
+  },
+  {
+    title: 'Explain concepts',
+    description: 'Break down complex topics',
+    prompt: 'Explain the concepts in',
+    icon: LightBulbIcon,
+    color: 'from-green-500 to-emerald-500'
+  },
+  {
+    title: 'Compare documents',
+    description: 'Analyze differences and similarities',
+    prompt: 'Compare information between',
+    icon: ArrowPathIcon,
+    color: 'from-orange-500 to-red-500'
+  }
+];
+
 export default function ChatPage() {
   const { messages, loading, error, sendMessage } = useChat();
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
+
   async function handleSend() {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
+    setIsTyping(true);
     await sendMessage(input.trim());
     setInput('');
+    setIsTyping(false);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -58,74 +112,100 @@ export default function ChatPage() {
   const showWelcome = messages.length === 0 && !loading;
 
   return (
-    <div className="flex flex-col h-screen max-w-4xl mx-auto">
+    <div className="flex flex-col h-screen max-w-6xl mx-auto">
       {/* Welcome screen */}
       {showWelcome && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
-          <h1 className="text-4xl md:text-5xl font-normal text-white">
-            How can I help you today?
-          </h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-            <button
-              onClick={() => setInput("Summarize the key points from my documents")}
-              className="p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-200 text-left"
-            >
-              <div className="text-white font-medium mb-1">Summarize documents</div>
-              <div className="text-white/60 text-sm">Get key insights from your uploaded files</div>
-            </button>
-            <button
-              onClick={() => setInput("Find information about")}
-              className="p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-200 text-left"
-            >
-              <div className="text-white font-medium mb-1">Search knowledge base</div>
-              <div className="text-white/60 text-sm">Find specific information quickly</div>
-            </button>
-            <button
-              onClick={() => setInput("Explain the concepts in")}
-              className="p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-200 text-left"
-            >
-              <div className="text-white font-medium mb-1">Explain concepts</div>
-              <div className="text-white/60 text-sm">Break down complex topics</div>
-            </button>
-            <button
-              onClick={() => setInput("Compare information between")}
-              className="p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-200 text-left"
-            >
-              <div className="text-white font-medium mb-1">Compare documents</div>
-              <div className="text-white/60 text-sm">Analyze differences and similarities</div>
-            </button>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex-1 flex flex-col items-center justify-center text-center space-y-8 px-4"
+        >
+          <div className="space-y-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+              <SparklesIcon className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-white">
+              How can I help you today?
+            </h1>
+            <p className="text-xl text-white/60 max-w-2xl">
+              Ask me anything about your documents, or try one of these quick prompts to get started.
+            </p>
           </div>
-        </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
+            {quickPrompts.map((prompt, index) => (
+              <motion.button
+                key={prompt.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
+                onClick={() => setInput(prompt.prompt)}
+                className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5"
+              >
+                <div className="flex items-start space-x-4">
+                  <div className={`w-12 h-12 bg-gradient-to-br ${prompt.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                    <prompt.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-white mb-2">{prompt.title}</h3>
+                    <p className="text-white/60 text-sm leading-relaxed">{prompt.description}</p>
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
       )}
 
       {/* Chat messages */}
       {!showWelcome && (
-        <div className="flex-1 overflow-y-auto py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto py-6 space-y-6 px-4">
           <AnimatePresence initial={false}>
-            {messages.map((m) => (
+            {messages.map((m, index) => (
               <motion.div
                 key={m.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
                 className="space-y-4"
               >
                 {m.role === 'user' ? (
                   <div className="flex justify-end">
-                    <div className="max-w-3xl bg-white/10 rounded-2xl px-4 py-3 border border-white/10">
-                      <div className="text-white">{m.content}</div>
-                    </div>
+                    <motion.div 
+                      initial={{ scale: 0.95 }}
+                      animate={{ scale: 1 }}
+                      className="max-w-3xl"
+                    >
+                      <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl px-6 py-4 shadow-lg">
+                        <div className="text-white font-medium">{m.content}</div>
+                      </div>
+                    </motion.div>
                   </div>
                 ) : (
                   <div className="flex justify-start">
-                    <div className="max-w-3xl">
-                      <div className="text-white leading-relaxed whitespace-pre-wrap">
-                        {m.content}
+                    <motion.div 
+                      initial={{ scale: 0.95 }}
+                      animate={{ scale: 1 }}
+                      className="max-w-4xl"
+                    >
+                      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-4 shadow-lg">
+                        <div className="flex items-start space-x-3 mb-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <SparklesIcon className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-white leading-relaxed whitespace-pre-wrap">
+                              {m.content}
+                            </div>
+                          </div>
+                        </div>
+                        {(m as unknown as { references?: Reference[] }).references && (
+                          <ReferenceChips refs={(m as unknown as { references: Reference[] }).references} />
+                        )}
                       </div>
-                      {(m as unknown as { references?: Reference[] }).references && (
-                        <ReferenceChips refs={(m as unknown as { references: Reference[] }).references} />
-                      )}
-                    </div>
+                    </motion.div>
                   </div>
                 )}
               </motion.div>
@@ -133,17 +213,33 @@ export default function ChatPage() {
           </AnimatePresence>
           
           {loading && (
-            <div className="flex justify-start">
-              <div className="px-4 py-3">
-                <TypingDots />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-start"
+            >
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-6 py-4 shadow-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                    <SparklesIcon className="h-4 w-4 text-white" />
+                  </div>
+                  <TypingDots />
+                </div>
               </div>
-            </div>
+            </motion.div>
           )}
           
           {error && (
-            <div className="text-red-400 text-sm bg-red-400/10 rounded-lg p-3 border border-red-400/20">
-              {error}
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center"
+            >
+              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-6 py-4 max-w-2xl">
+                <div className="text-red-400 text-sm font-medium">Error: {error}</div>
+                <div className="text-red-400/60 text-xs mt-1">Please try again or contact support if the problem persists.</div>
+              </div>
+            </motion.div>
           )}
           
           <div ref={bottomRef} />
@@ -151,26 +247,40 @@ export default function ChatPage() {
       )}
 
       {/* Input area */}
-      <div className="py-4">
-        <div className="relative max-w-4xl mx-auto">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Ask anything..."
-            rows={1}
-            className="w-full resize-none rounded-2xl border border-white/20 bg-white/10 px-4 py-3 pr-12 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent min-h-[48px] max-h-32 overflow-y-auto"
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <PaperAirplaneIcon className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="text-center text-white/40 text-xs mt-2">
-          NeuroSpace can make mistakes. Check important info.
+      <div className="border-t border-white/10 bg-black/50 backdrop-blur-sm">
+        <div className="p-6">
+          <div className="relative max-w-4xl mx-auto">
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Ask anything about your documents..."
+                rows={1}
+                className="w-full resize-none rounded-2xl border border-white/20 bg-white/10 px-6 py-4 pr-16 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent min-h-[56px] max-h-32 overflow-y-auto transition-all duration-300"
+                disabled={loading}
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading || !input.trim() || isTyping}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+              >
+                <PaperAirplaneIcon className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between mt-3 text-xs text-white/40">
+              <div className="flex items-center space-x-4">
+                <span>Press Enter to send, Shift+Enter for new line</span>
+                {loading && <span className="text-blue-400">AI is thinking...</span>}
+              </div>
+              <div className="flex items-center space-x-2">
+                <SparklesIcon className="h-3 w-3" />
+                <span>NeuroSpace can make mistakes. Check important information.</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
