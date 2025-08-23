@@ -1,84 +1,284 @@
 export const dynamic = 'force-dynamic';
-import { DocumentTextIcon, ChatBubbleLeftRightIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { 
+  DocumentTextIcon, 
+  ChatBubbleLeftRightIcon, 
+  Cog6ToothIcon,
+  PlusIcon,
+  FolderIcon,
+  ChartBarIcon,
+  ClockIcon,
+  SparklesIcon,
+  ArrowUpIcon,
+  UsersIcon,
+  DocumentMagnifyingGlassIcon,
+  CpuChipIcon
+} from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+
+// Mock data - in real app, this would come from API
+const stats = [
+  {
+    title: 'Total Documents',
+    value: '24',
+    change: '+12%',
+    changeType: 'positive',
+    icon: DocumentTextIcon,
+    color: 'from-blue-500 to-cyan-500',
+    description: 'Files uploaded'
+  },
+  {
+    title: 'Chat Sessions',
+    value: '156',
+    change: '+8%',
+    changeType: 'positive',
+    icon: ChatBubbleLeftRightIcon,
+    color: 'from-purple-500 to-pink-500',
+    description: 'This month'
+  },
+  {
+    title: 'Storage Used',
+    value: '6.5 GB',
+    change: '+2.1 GB',
+    changeType: 'neutral',
+    icon: FolderIcon,
+    color: 'from-green-500 to-emerald-500',
+    description: 'Of 10 GB total'
+  },
+  {
+    title: 'AI Responses',
+    value: '1,247',
+    change: '+23%',
+    changeType: 'positive',
+    icon: CpuChipIcon,
+    color: 'from-orange-500 to-red-500',
+    description: 'Generated today'
+  }
+];
+
+const recentActivity = [
+  {
+    id: 1,
+    type: 'upload',
+    title: 'Project Proposal.pdf',
+    description: 'Document uploaded successfully',
+    time: '2 minutes ago',
+    icon: DocumentTextIcon,
+    color: 'text-blue-400'
+  },
+  {
+    id: 2,
+    type: 'chat',
+    title: 'New conversation started',
+    description: 'Asked about Q4 strategy',
+    time: '15 minutes ago',
+    icon: ChatBubbleLeftRightIcon,
+    color: 'text-purple-400'
+  },
+  {
+    id: 3,
+    type: 'processing',
+    title: 'Technical Manual.docx',
+    description: 'Document processing completed',
+    time: '1 hour ago',
+    icon: DocumentMagnifyingGlassIcon,
+    color: 'text-green-400'
+  },
+  {
+    id: 4,
+    type: 'chat',
+    title: 'Conversation ended',
+    description: '5 messages exchanged',
+    time: '2 hours ago',
+    icon: ChatBubbleLeftRightIcon,
+    color: 'text-purple-400'
+  }
+];
+
+const quickActions = [
+  {
+    title: 'Upload Documents',
+    description: 'Add PDFs, docs, and text files to your knowledge base',
+    icon: PlusIcon,
+    href: '/dashboard/upload',
+    color: 'from-blue-500 to-cyan-500',
+    gradient: 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10'
+  },
+  {
+    title: 'Start New Chat',
+    description: 'Begin a conversation with your AI assistant',
+    icon: ChatBubbleLeftRightIcon,
+    href: '/dashboard/chat',
+    color: 'from-purple-500 to-pink-500',
+    gradient: 'bg-gradient-to-br from-purple-500/10 to-pink-500/10'
+  },
+  {
+    title: 'Browse Documents',
+    description: 'View and manage your uploaded files',
+    icon: DocumentTextIcon,
+    href: '/dashboard/documents',
+    color: 'from-green-500 to-emerald-500',
+    gradient: 'bg-gradient-to-br from-green-500/10 to-emerald-500/10'
+  },
+  {
+    title: 'View Analytics',
+    description: 'Check your usage statistics and insights',
+    icon: ChartBarIcon,
+    href: '/dashboard/analytics',
+    color: 'from-orange-500 to-red-500',
+    gradient: 'bg-gradient-to-br from-orange-500/10 to-red-500/10'
+  }
+];
 
 export default function Dashboard() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-8 text-center">
-      {/* Main heading */}
-      <div className="space-y-4 animate-fade-in">
-        <h1 className="text-4xl md:text-5xl font-normal text-white transition-all duration-500 hover:scale-[1.02]">
-          What can I help with?
-        </h1>
-      </div>
-
-      {/* Quick actions grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-        <Link
-          href="/dashboard/upload"
-          className="group p-6 rounded-2xl border border-white/20 bg-black hover:bg-white hover:text-black transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-white/10"
-        >
-          <div className="flex items-start space-x-3">
-            <DocumentTextIcon className="h-6 w-6 text-white/70 group-hover:text-black/70 mt-1 flex-shrink-0 transition-colors duration-300" />
-            <div>
-              <h3 className="text-white group-hover:text-black font-medium mb-1 transition-colors duration-300">Upload documents</h3>
-              <p className="text-white/60 group-hover:text-black/60 text-sm leading-relaxed transition-colors duration-300">
-                Upload PDFs, documents, and text files to build your knowledge base
-              </p>
-            </div>
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-center space-y-4"
+      >
+        <div className="flex items-center justify-center space-x-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+            <SparklesIcon className="h-6 w-6 text-white" />
           </div>
-        </Link>
+          <h1 className="text-4xl md:text-5xl font-bold text-white">
+            Welcome back!
+          </h1>
+        </div>
+        <p className="text-xl text-white/60 max-w-2xl mx-auto">
+          Your AI knowledge base is ready to help. What would you like to do today?
+        </p>
+      </motion.div>
 
-        <Link
-          href="/dashboard/chat"
-          className="group p-6 rounded-2xl border border-white/20 bg-black hover:bg-white hover:text-black transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-white/10"
-        >
-          <div className="flex items-start space-x-3">
-            <ChatBubbleLeftRightIcon className="h-6 w-6 text-white/70 group-hover:text-black/70 mt-1 flex-shrink-0 transition-colors duration-300" />
-            <div>
-              <h3 className="text-white group-hover:text-black font-medium mb-1 transition-colors duration-300">Start conversation</h3>
-              <p className="text-white/60 group-hover:text-black/60 text-sm leading-relaxed transition-colors duration-300">
-                Chat with your documents and get instant answers
-              </p>
+      {/* Stats Grid */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        {stats.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
+            className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
+                <stat.icon className="h-6 w-6 text-white" />
+              </div>
+              <div className={`flex items-center space-x-1 text-sm ${
+                stat.changeType === 'positive' ? 'text-green-400' : 
+                stat.changeType === 'negative' ? 'text-red-400' : 'text-white/60'
+              }`}>
+                <ArrowUpIcon className="h-3 w-3" />
+                <span>{stat.change}</span>
+              </div>
             </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/documents"
-          className="group p-6 rounded-2xl border border-white/20 bg-black hover:bg-white hover:text-black transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-white/10"
-        >
-          <div className="flex items-start space-x-3">
-            <DocumentTextIcon className="h-6 w-6 text-white/70 group-hover:text-black/70 mt-1 flex-shrink-0 transition-colors duration-300" />
-            <div>
-              <h3 className="text-white group-hover:text-black font-medium mb-1 transition-colors duration-300">Browse documents</h3>
-              <p className="text-white/60 group-hover:text-black/60 text-sm leading-relaxed transition-colors duration-300">
-                View and manage your uploaded documents
-              </p>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-white">{stat.value}</div>
+              <div className="text-sm text-white/60">{stat.title}</div>
+              <div className="text-xs text-white/40">{stat.description}</div>
             </div>
-          </div>
-        </Link>
+          </motion.div>
+        ))}
+      </motion.div>
 
-        <Link
-          href="/dashboard/settings"
-          className="group p-6 rounded-2xl border border-white/20 bg-black hover:bg-white hover:text-black transition-all duration-300 text-left transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-white/10"
-        >
-          <div className="flex items-start space-x-3">
-            <Cog6ToothIcon className="h-6 w-6 text-white/70 group-hover:text-black/70 mt-1 flex-shrink-0 transition-colors duration-300" />
-            <div>
-              <h3 className="text-white group-hover:text-black font-medium mb-1 transition-colors duration-300">Settings</h3>
-              <p className="text-white/60 group-hover:text-black/60 text-sm leading-relaxed transition-colors duration-300">
-                Configure your preferences and account settings
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
+      {/* Quick Actions */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Quick Actions</h2>
+          <div className="text-sm text-white/40">Get started quickly</div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {quickActions.map((action, index) => (
+            <motion.div
+              key={action.title}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 + index * 0.1 }}
+            >
+              <Link
+                href={action.href}
+                className={`group block p-6 rounded-2xl border border-white/10 ${action.gradient} hover:bg-white/10 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5`}
+              >
+                <div className="flex items-start space-x-4">
+                  <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                    <action.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-white mb-2">{action.title}</h3>
+                    <p className="text-white/60 text-sm leading-relaxed">{action.description}</p>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
 
-      {/* Bottom text */}
-      <div className="text-white/40 text-sm hover:text-white/60 transition-colors duration-300 cursor-default">
-        NeuroSpace can make mistakes. Check important info.
-      </div>
+      {/* Recent Activity */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Recent Activity</h2>
+          <Link href="/dashboard/activity" className="text-sm text-white/60 hover:text-white transition-colors duration-300">
+            View all
+          </Link>
+        </div>
+        
+        <div className="space-y-3">
+          {recentActivity.map((activity, index) => (
+            <motion.div
+              key={activity.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+              className="flex items-center space-x-4 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300"
+            >
+              <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center ${activity.color}`}>
+                <activity.icon className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white">{activity.title}</div>
+                <div className="text-xs text-white/60">{activity.description}</div>
+              </div>
+              <div className="flex items-center space-x-2 text-xs text-white/40">
+                <ClockIcon className="h-3 w-3" />
+                <span>{activity.time}</span>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Bottom CTA */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+        className="text-center py-8"
+      >
+        <div className="inline-flex items-center space-x-2 text-white/40 text-sm">
+          <SparklesIcon className="h-4 w-4" />
+          <span>NeuroSpace can make mistakes. Check important information.</span>
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -9,8 +9,13 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  SparklesIcon,
+  ArrowUpTrayIcon,
+  ClockIcon,
+  DocumentMagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface FileWithPreview {
   file: File;
@@ -35,11 +40,21 @@ const isValidFile = (obj: unknown): obj is File => {
          (obj as File).size > 0);
 };
 
+const acceptedFileTypes = {
+  'application/pdf': ['.pdf'],
+  'text/plain': ['.txt'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'text/markdown': ['.md'],
+  'application/rtf': ['.rtf'],
+};
+
 export default function UploadPage() {
   const { user } = useUser();
   const userId = user?.id;
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   // Security: Cleanup object URLs on component unmount
   useEffect(() => {
@@ -98,12 +113,7 @@ export default function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-    },
+    accept: acceptedFileTypes,
     multiple: true,
     maxSize: 10 * 1024 * 1024, // 10MB
   });
@@ -198,193 +208,270 @@ export default function UploadPage() {
     }
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${backendUrl}/api/files/`, {
+      const response = await fetch(`${backendUrl}/files`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': userId,
+          'Authorization': `Bearer ${userId}`,
         },
         body: JSON.stringify({
           file_key: fileKey,
           file_name: fileName,
-          user_id: userId,
           file_size: fileSize,
           content_type: fileType,
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create file record: ${response.status} - ${errorText}`);
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create file record');
       }
 
-      const result = await response.json();
-      console.log('File record created:', result);
-      return result;
+      return await response.json();
     } catch (error) {
-      console.error('Error creating file record:', error);
+      console.error('createFileRecord error:', error);
       throw error;
     }
   };
 
-  const processFile = async (fileKey: string, fileName: string) => {
-    const response = await fetch('/api/process', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileKey, fileName }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to process file');
-    }
-    return await response.json();
-  };
-
-  const handleUpload = async () => {
-    if (!userId) {
-      toast.error('Please sign in to upload files');
-      return;
-    }
+  const uploadFiles = async () => {
     if (files.length === 0) return;
+    
     setUploading(true);
     
-    // Filter out any invalid files before uploading
-    const validFiles = files.filter(fileWrapper => isValidFile(fileWrapper.file));
-    
-    if (validFiles.length === 0) {
-      toast.error('No valid files to upload');
-      setUploading(false);
-      return;
-    }
-    
-    const uploadPromises = validFiles.map(async (fileWrapper) => {
+    for (let i = 0; i < files.length; i++) {
+      const fileWrapper = files[i];
+      
       try {
-        console.log('Starting upload for file:', { name: fileWrapper.name, type: fileWrapper.type, size: fileWrapper.size });
+        // Update progress
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { ...f, progress: 10 } : f
+        ));
         
-        // Find the original index of this file in the files array
-        const originalIndex = files.findIndex(f => f.name === fileWrapper.name && f.size === fileWrapper.size);
-        
-        setFiles((prev) => prev.map((f, i) => (i === originalIndex ? { ...f, progress: 25 } : f)));
+        // Upload to S3
         const { fileKey } = await uploadFileToS3(fileWrapper);
-        setFiles((prev) => prev.map((f, i) => (i === originalIndex ? { ...f, progress: 75, fileKey } : f)));
         
-        // Create file record in the backend
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { ...f, progress: 50 } : f
+        ));
+        
+        // Create file record
         await createFileRecord(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
         
-        processFile(fileKey, fileWrapper.name).catch(() => {});
-        setFiles((prev) =>
-          prev.map((f, i) => (i === originalIndex ? { ...f, status: 'success' as const, progress: 100 } : f)),
-        );
-        toast.success(`Uploaded ${fileWrapper.name}`);
-      } catch (error: unknown) {
-        console.error('Upload error for file:', fileWrapper.name, error);
-        const msg = (error as Error)?.message || 'Upload failed';
-        const originalIndex = files.findIndex(f => f.name === fileWrapper.name && f.size === fileWrapper.size);
-        setFiles((prev) =>
-          prev.map((f, i) => (i === originalIndex ? { ...f, status: 'error' as const, error: msg } : f)),
-        );
-        toast.error(`Failed to upload ${fileWrapper.name}: ${msg}`);
+        // Mark as success
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { ...f, status: 'success', progress: 100, fileKey } : f
+        ));
+        
+        toast.success(`${fileWrapper.name} uploaded successfully!`);
+        
+      } catch (error) {
+        console.error(`Error uploading ${fileWrapper.name}:`, error);
+        
+        setFiles(prev => prev.map((f, index) => 
+          index === i ? { 
+            ...f, 
+            status: 'error', 
+            error: error instanceof Error ? error.message : 'Upload failed' 
+          } : f
+        ));
+        
+        toast.error(`Failed to upload ${fileWrapper.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-    });
-    await Promise.allSettled(uploadPromises);
+    }
+    
     setUploading(false);
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  const getFileIcon = (contentType: string) => {
+    if (contentType.includes('pdf')) return '📄';
+    if (contentType.includes('word') || contentType.includes('document')) return '📝';
+    if (contentType.includes('text')) return '📄';
+    if (contentType.includes('markdown')) return '📝';
+    if (contentType.includes('rtf')) return '📄';
+    return '📄';
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircleIcon className="h-5 w-5 text-green-400" />;
+      case 'error':
+        return <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />;
+      case 'uploading':
+        return <ClockIcon className="h-5 w-5 text-blue-400" />;
+      default:
+        return <DocumentTextIcon className="h-5 w-5 text-white/60" />;
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center animate-fade-in">
-        <h1 className="text-3xl font-normal text-white mb-2 transition-all duration-500 hover:scale-105">Upload Documents</h1>
-        <p className="text-white/60 transition-colors duration-300 hover:text-white/80">
-          Upload your documents to build your AI-powered knowledge base
-        </p>
-      </div>
-
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
-          isDragActive
-            ? 'border-white/50 bg-white/10 scale-[1.02]'
-            : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-        }`}
-      >
-        <input {...getInputProps()} />
-        <CloudArrowUpIcon className={`mx-auto h-16 w-16 text-white/40 mb-4 transition-all duration-300 ${isDragActive ? 'scale-110 text-white/60' : 'hover:scale-110'}`} />
-        <h3 className="text-xl font-medium text-white mb-2 transition-colors duration-300">
-          {isDragActive ? 'Drop files here' : 'Drop files to upload'}
-        </h3>
-        <p className="text-white/60 mb-2 transition-colors duration-300 hover:text-white/80">or click to browse</p>
-        <p className="text-sm text-white/40 transition-colors duration-300 hover:text-white/60">
-          Supports PDF, TXT, DOC, DOCX files up to 10MB
-        </p>
-      </div>
-
-      {files.length > 0 && (
-        <div className="space-y-4 animate-fade-in">
-          <h3 className="text-xl font-medium text-white transition-all duration-500 hover:scale-105">
-            Uploaded files ({files.length})
-          </h3>
-          <div className="space-y-3">
-            {files.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between p-4 rounded-xl border border-white/20 bg-black hover:bg-white hover:text-black transition-all duration-300 transform hover:scale-[1.01] group"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <DocumentTextIcon className="w-5 h-5 text-white/60 group-hover:text-black/60 flex-shrink-0 transition-colors duration-300" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-white group-hover:text-black truncate transition-colors duration-300">{file.name}</p>
-                    <p className="text-sm text-white/60 group-hover:text-black/60 transition-colors duration-300">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    {file.error && (
-                      <p className="text-sm text-red-400 group-hover:text-red-600 mt-1 transition-colors duration-300">{file.error}</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  {file.status === 'uploading' && (
-                    <div className="w-24">
-                      <div className="w-full bg-white/20 rounded-full h-1.5">
-                        <div
-                          className="bg-white group-hover:bg-black h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${file.progress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-white/60 group-hover:text-black/60 mt-1 text-center transition-colors duration-300">
-                        {file.progress}%
-                      </p>
-                    </div>
-                  )}
-                  {file.status === 'success' && (
-                    <CheckCircleIcon className="w-5 h-5 text-green-400 group-hover:text-green-600 transition-colors duration-300" />
-                  )}
-                  {file.status === 'error' && (
-                    <ExclamationTriangleIcon className="w-5 h-5 text-red-400 group-hover:text-red-600 transition-colors duration-300" />
-                  )}
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="p-1 text-white/40 group-hover:text-black/40 hover:!text-red-500 transition-all duration-300 transform hover:scale-110"
-                  >
-                    <XMarkIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center space-x-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+            <CloudArrowUpIcon className="h-6 w-6 text-white" />
           </div>
+          <h1 className="text-4xl font-bold text-white">Upload Documents</h1>
+        </div>
+        <p className="text-xl text-white/60 max-w-2xl mx-auto">
+          Add PDFs, documents, and text files to build your AI knowledge base
+        </p>
+      </div>
+
+      {/* Upload Area */}
+      <div className="max-w-4xl mx-auto">
+        <div
+          {...getRootProps()}
+          className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
+            isDragActive
+              ? 'border-blue-400 bg-blue-400/10'
+              : 'border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10'
+          }`}
+        >
+          <input {...getInputProps()} />
           
-          <div className="flex justify-center pt-4">
+          <div className="space-y-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+              <ArrowUpTrayIcon className="h-8 w-8 text-white" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold text-white">
+                {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
+              </h3>
+              <p className="text-white/60">
+                or click to browse your files
+              </p>
+            </div>
+            
+            <div className="text-sm text-white/40">
+              Supports PDF, DOC, DOCX, TXT, MD, RTF (max 10MB each)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* File List */}
+      {files.length > 0 && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Files to Upload</h2>
             <button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="px-6 py-2.5 rounded-xl bg-white text-black hover:bg-white/90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium transform hover:scale-105 disabled:hover:scale-100"
+              onClick={uploadFiles}
+              disabled={uploading || files.every(f => f.status === 'success')}
+              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100"
             >
-              {uploading ? 'Uploading...' : 'Upload Files'}
+              {uploading ? (
+                <>
+                  <div className="spinner"></div>
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-4 w-4" />
+                  <span>Upload All Files</span>
+                </>
+              )}
             </button>
+          </div>
+
+          <div className="space-y-4">
+            <AnimatePresence>
+              {files.map((file, index) => (
+                <motion.div
+                  key={`${file.name}-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="text-3xl">{getFileIcon(file.type)}</div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-white font-medium truncate">{file.name}</h3>
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(file.status || 'pending')}
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-1.5 rounded-lg bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-colors"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="text-white/60">{formatFileSize(file.size)}</div>
+                        <div className="text-white/40">{file.type}</div>
+                      </div>
+                      
+                      {file.status === 'uploading' && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-xs text-white/60 mb-1">
+                            <span>Uploading...</span>
+                            <span>{file.progress || 0}%</span>
+                          </div>
+                          <div className="w-full bg-white/10 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${file.progress || 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {file.status === 'success' && (
+                        <div className="mt-3 flex items-center space-x-2 text-sm text-green-400">
+                          <CheckCircleIcon className="h-4 w-4" />
+                          <span>Uploaded successfully</span>
+                        </div>
+                      )}
+                      
+                      {file.status === 'error' && (
+                        <div className="mt-3 flex items-center space-x-2 text-sm text-red-400">
+                          <ExclamationTriangleIcon className="h-4 w-4" />
+                          <span>{file.error}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
+
+      {/* Info Section */}
+      <div className="max-w-4xl mx-auto">
+        <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+          <div className="flex items-start space-x-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <DocumentMagnifyingGlassIcon className="h-5 w-5 text-white" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-white">How it works</h3>
+              <p className="text-white/60 text-sm leading-relaxed">
+                Your documents are securely uploaded and processed by our AI. The content is broken down into searchable chunks, 
+                making it easy to find and reference information later. You can then chat with your documents and get instant answers.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
