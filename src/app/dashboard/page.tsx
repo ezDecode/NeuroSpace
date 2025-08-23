@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 
 // Mock data - in real app, this would come from API
 const stats = [
@@ -132,7 +133,7 @@ const quickActions = [
 
 export default function Dashboard() {
   return (
-    <div className="space-y-8">
+    <div className={componentClasses.layout.page}>
       {/* Welcome Header */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -141,10 +142,10 @@ export default function Dashboard() {
         className="text-center space-y-4"
       >
         <div className="flex items-center justify-center space-x-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+          <div className={componentClasses.icon.container}>
             <SparklesIcon className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white">
+          <h1 className={designTokens.typography.h1}>
             Welcome back!
           </h1>
         </div>
@@ -158,7 +159,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className={componentClasses.layout.gridStats}
       >
         {stats.map((stat, index) => (
           <motion.div
@@ -166,7 +167,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
-            className="group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5"
+            className={getCardClass(true)}
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
@@ -194,10 +195,10 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="space-y-6"
+        className={componentClasses.layout.section}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">Quick Actions</h2>
+          <h2 className={designTokens.typography.h2}>Quick Actions</h2>
           <div className="text-sm text-white/40">Get started quickly</div>
         </div>
         
@@ -211,7 +212,7 @@ export default function Dashboard() {
             >
               <Link
                 href={action.href}
-                className={`group block p-6 rounded-2xl border border-white/10 ${action.gradient} hover:bg-white/10 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-white/5`}
+                className={`group block ${getCardClass(true)} ${action.gradient}`}
               >
                 <div className="flex items-start space-x-4">
                   <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
@@ -233,10 +234,10 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
-        className="space-y-6"
+        className={componentClasses.layout.section}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">Recent Activity</h2>
+          <h2 className={designTokens.typography.h2}>Recent Activity</h2>
           <Link href="/dashboard/activity" className="text-sm text-white/60 hover:text-white transition-colors duration-300">
             View all
           </Link>
@@ -249,7 +250,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex items-center space-x-4 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300"
+              className="flex items-center space-x-4 p-4 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300"
             >
               <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center ${activity.color}`}>
                 <activity.icon className="h-5 w-5" />

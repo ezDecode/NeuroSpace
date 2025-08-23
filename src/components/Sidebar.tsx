@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
@@ -39,6 +39,20 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
 
+  // Update document body class for layout adjustments
+  useEffect(() => {
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+      if (collapsed) {
+        mainElement.classList.add('lg:ml-20');
+        mainElement.classList.remove('lg:ml-72');
+      } else {
+        mainElement.classList.add('lg:ml-72');
+        mainElement.classList.remove('lg:ml-20');
+      }
+    }
+  }, [collapsed]);
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -60,7 +74,7 @@ export default function Sidebar() {
       {/* Sidebar */}
       <div
         className={clsx(
-          'fixed left-0 top-0 z-40 h-full bg-black/95 backdrop-blur-xl border-r border-white/10 flex flex-col transition-all duration-300 transform',
+          'fixed left-0 top-0 z-40 h-full bg-black/95 backdrop-blur-xl border-r border-white/20 flex flex-col transition-all duration-300 transform',
           {
             'w-72': !collapsed,
             'w-20': collapsed,
@@ -70,7 +84,7 @@ export default function Sidebar() {
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-white/20">
           <div className={clsx('flex items-center space-x-3 transition-opacity duration-300', { 'opacity-0': collapsed })}>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
               <SparklesIcon className="h-6 w-6 text-white" />
@@ -89,7 +103,7 @@ export default function Sidebar() {
         </div>
 
         {/* User Profile Section */}
-        <div className="p-4 border-b border-white/10">
+        <div className="p-4 border-b border-white/20">
           <div className={clsx('flex items-center space-x-3', { 'justify-center': collapsed })}>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
               {user?.imageUrl ? (
@@ -197,7 +211,7 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/20">
           {!collapsed && (
             <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
               <div className="text-xs text-white/60 mb-1">Storage Used</div>
