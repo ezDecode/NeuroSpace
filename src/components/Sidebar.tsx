@@ -21,6 +21,17 @@ import {
 import clsx from 'classnames';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 
+// Safe hook to handle cases when Clerk is not configured
+function useSafeUser() {
+  try {
+    return useUser();
+  } catch (error) {
+    // If Clerk is not properly configured, return null user
+    console.warn('Clerk not configured, using fallback user state');
+    return { user: null, isLoaded: true, isSignedIn: false };
+  }
+}
+
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, description: 'Overview & analytics' },
   { name: 'Documents', href: '/dashboard/documents', icon: DocumentTextIcon, description: 'Manage your files' },
@@ -38,7 +49,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user } = useSafeUser();
 
   // Update document body class for layout adjustments
   useEffect(() => {
