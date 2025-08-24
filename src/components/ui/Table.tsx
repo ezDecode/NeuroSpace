@@ -27,3 +27,5 @@ export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={clsx('py-3 pr-4 align-middle', className)} {...props} />;
 }
+
+export default Table;

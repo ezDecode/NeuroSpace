@@ -5,7 +5,7 @@ import {
   InformationCircleIcon,
   ArrowPathIcon 
 } from '@heroicons/react/24/outline';
-import { componentClasses, designTokens } from '@/lib/design-system';
+import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 
 // Loading Spinner Component
 export function LoadingSpinner({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg', className?: string }) {
@@ -224,13 +224,4 @@ export function StatusBadge({
       {children}
     </span>
   );
-}
-
-// Helper function to get card class (imported from design system)
-function getCardClass(interactive = false) {
-  return interactive ? componentClasses.card.interactive : componentClasses.card.base;
-}
-
-function getButtonClass(variant: 'primary' | 'secondary' | 'ghost' = 'primary') {
-  return componentClasses.button[variant];
 }

@@ -132,6 +132,9 @@ const quickActions = [
 ];
 
 export default function Dashboard() {
+  // Debug log to verify design system exports are working
+  console.log('Design System Debug:', { componentClasses, getButtonClass });
+  
   return (
     <div className={componentClasses.layout.page}>
       {/* Welcome Header */}
@@ -161,33 +164,36 @@ export default function Dashboard() {
         transition={{ duration: 0.6, delay: 0.1 }}
         className={componentClasses.layout.gridStats}
       >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
-            className={getCardClass(true)}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
-                <stat.icon className="h-6 w-6 text-white" />
+        {stats.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
+              className={getCardClass(true)}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
+                  <IconComponent className="h-6 w-6 text-white" />
+                </div>
+                <div className={`flex items-center space-x-1 text-sm ${
+                  stat.changeType === 'positive' ? 'text-green-400' : 
+                  stat.changeType === 'negative' ? 'text-red-400' : 'text-white/60'
+                }`}>
+                  <ArrowUpIcon className="h-3 w-3" />
+                  <span>{stat.change}</span>
+                </div>
               </div>
-              <div className={`flex items-center space-x-1 text-sm ${
-                stat.changeType === 'positive' ? 'text-green-400' : 
-                stat.changeType === 'negative' ? 'text-red-400' : 'text-white/60'
-              }`}>
-                <ArrowUpIcon className="h-3 w-3" />
-                <span>{stat.change}</span>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-white">{stat.value}</div>
+                <div className="text-sm text-white/60">{stat.title}</div>
+                <div className="text-xs text-white/40">{stat.description}</div>
               </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
-              <div className="text-sm text-white/60">{stat.title}</div>
-              <div className="text-xs text-white/40">{stat.description}</div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </motion.div>
 
       {/* Quick Actions */}
@@ -203,29 +209,32 @@ export default function Dashboard() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {quickActions.map((action, index) => (
-            <motion.div
-              key={action.title}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 + index * 0.1 }}
-            >
-              <Link
-                href={action.href}
-                className={`group block ${getCardClass(true)} ${action.gradient}`}
+          {quickActions.map((action, index) => {
+            const ActionIcon = action.icon;
+            return (
+              <motion.div
+                key={action.title}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 + index * 0.1 }}
               >
-                <div className="flex items-start space-x-4">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                    <action.icon className="h-6 w-6 text-white" />
-                  </div>
+                <Link
+                  href={action.href}
+                  className={`group block ${getCardClass(true)} ${action.gradient}`}
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className={`w-12 h-12 bg-gradient-to-br ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                      <ActionIcon className="h-6 w-6 text-white" />
+                    </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-white mb-2">{action.title}</h3>
                     <p className="text-white/60 text-sm leading-relaxed">{action.description}</p>
                   </div>
                 </div>
               </Link>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </motion.div>
 
@@ -244,17 +253,19 @@ export default function Dashboard() {
         </div>
         
         <div className="space-y-3">
-          {recentActivity.map((activity, index) => (
-            <motion.div
-              key={activity.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex items-center space-x-4 p-4 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300"
-            >
-              <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center ${activity.color}`}>
-                <activity.icon className="h-5 w-5" />
-              </div>
+          {recentActivity.map((activity, index) => {
+            const ActivityIcon = activity.icon;
+            return (
+              <motion.div
+                key={activity.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+                className="flex items-center space-x-4 p-4 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300"
+              >
+                <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center ${activity.color}`}>
+                  <ActivityIcon className="h-5 w-5" />
+                </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-white">{activity.title}</div>
                 <div className="text-xs text-white/60">{activity.description}</div>
@@ -263,8 +274,9 @@ export default function Dashboard() {
                 <ClockIcon className="h-3 w-3" />
                 <span>{activity.time}</span>
               </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </motion.div>
 
