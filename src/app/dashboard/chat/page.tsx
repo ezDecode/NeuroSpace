@@ -9,9 +9,13 @@ import {
   DocumentTextIcon,
   MagnifyingGlassIcon,
   LightBulbIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PaperClipIcon,
+  XMarkIcon,
+  CodeBracketIcon
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 
 type Reference = { file_name: string; score?: number };
 
@@ -274,30 +278,99 @@ export default function ChatPage() {
       {/* Input area */}
       <div className="border-t border-white/10 bg-black/50 backdrop-blur-sm">
         <div className="p-6">
-          <div className="relative max-w-4xl mx-auto">
-            <div className="relative">
+          <div className="max-w-4xl mx-auto">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between mb-2 px-2">
+              <div className="flex items-center space-x-1 text-white/60">
+                <button
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Insert code block"
+                  onClick={() => {
+                    if (!textareaRef.current) return;
+                    const el = textareaRef.current;
+                    const start = el.selectionStart || 0;
+                    const end = el.selectionEnd || 0;
+                    const value = input;
+                    const snippet = "\n```\n\n```\n";
+                    const newValue = value.slice(0, start) + snippet + value.slice(end);
+                    setInput(newValue);
+                    requestAnimationFrame(() => {
+                      const pos = start + 4; // inside code block
+                      el.focus();
+                      el.setSelectionRange(pos, pos);
+                    });
+                  }}
+                  disabled={loading}
+                >
+                  <CodeBracketIcon className="h-4 w-4" />
+                </button>
+                <button
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Clear"
+                  onClick={() => setInput('')}
+                  disabled={loading || input.length === 0}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+                <button
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Regenerate last"
+                  onClick={async () => {
+                    if (loading) return;
+                    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+                    if (lastUser) {
+                      setIsTyping(true);
+                      await sendMessage(lastUser.content);
+                      setIsTyping(false);
+                    }
+                  }}
+                  disabled={loading || messages.filter(m => m.role === 'user').length === 0}
+                >
+                  <ArrowPathIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="text-xs text-white/40">
+                {input.length} chars
+              </div>
+            </div>
+
+            {/* Input container */}
+            <div className="relative rounded-2xl border border-white/20 bg-white/10">
+              {/* Left attach button */}
+              <div className="absolute left-2 top-2">
+                <Link
+                  href="/dashboard/upload"
+                  className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Attach files"
+                >
+                  <PaperClipIcon className="h-4 w-4" />
+                </Link>
+              </div>
+
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Ask anything about your documents..."
+                placeholder="Message NeuroSpace..."
                 rows={1}
-                className="w-full resize-none rounded-2xl border border-white/20 bg-white/10 px-6 py-4 pr-16 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent min-h-[56px] max-h-32 overflow-y-auto transition-all duration-300"
+                className="w-full resize-none bg-transparent px-10 pr-16 py-4 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent min-h-[56px] max-h-40 overflow-y-auto transition-all duration-300"
                 disabled={loading}
               />
               <button
                 onClick={handleSend}
                 disabled={loading || !input.trim() || isTyping}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+                className="absolute right-2 top-2 p-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+                title="Send"
               >
                 <PaperAirplaneIcon className="h-4 w-4" />
               </button>
             </div>
-            
-            <div className="flex items-center justify-between mt-3 text-xs text-white/40">
+
+            {/* Hints */}
+            <div className="flex items-center justify-between mt-2 text-xs text-white/40 px-2">
               <div className="flex items-center space-x-4">
-                <span>Press Enter to send, Shift+Enter for new line</span>
+                <span>Enter to send, Shift+Enter for new line</span>
                 {loading && <span className="text-blue-400">AI is thinking...</span>}
               </div>
               <div className="flex items-center space-x-2">
