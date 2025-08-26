@@ -70,14 +70,7 @@ const quickActions = [
     color: 'from-green-500 to-emerald-500',
     gradient: 'bg-gradient-to-br from-green-500/10 to-emerald-500/10'
   },
-  {
-    title: 'View Analytics',
-    description: 'Check your usage statistics and insights',
-    icon: ChartBarIcon,
-    href: '/dashboard/analytics',
-    color: 'from-orange-500 to-red-500',
-    gradient: 'bg-gradient-to-br from-orange-500/10 to-red-500/10'
-  }
+  
 ];
 
 export default function Dashboard() {

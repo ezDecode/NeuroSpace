@@ -10,13 +10,18 @@ export interface ChatMessage {
   references?: { file_name: string; score?: number }[];
 }
 
-type AskResponse = { answer: string; references: { file_name: string; score?: number }[] };
+interface AskResponse {
+  answer: string;
+  references: { file_name: string; score?: number }[];
+  mode?: 'general' | 'document';
+}
 
 export function useChat() {
   const { getAuthHeader } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'general' | 'document' | null>(null);
 
   async function sendMessage(content: string) {
     setError(null);
@@ -38,6 +43,7 @@ export function useChat() {
         timestamp: Date.now(),
         references: data.references,
       };
+      if (data.mode === 'general' || data.mode === 'document') setMode(data.mode);
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to send';
@@ -47,5 +53,5 @@ export function useChat() {
     }
   }
 
-  return { messages, loading, error, sendMessage };
+  return { messages, loading, error, mode, sendMessage };
 }

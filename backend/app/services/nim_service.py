@@ -168,3 +168,34 @@ class NIMService:
         except Exception as e:
             print(f"Error generating streaming answer with NIM API: {e}")
             yield f"Error: {str(e)}"
+
+    async def generate_general_answer(self, question: str) -> Optional[str]:
+        """
+        Generate a general answer using NIM chat completion without any external context.
+        """
+        try:
+            system_prompt = (
+                "You are a helpful general-purpose AI assistant. "
+                "Answer clearly and concisely. Use markdown formatting for lists and code when helpful."
+            )
+
+            completion = self.client.chat.completions.create(
+                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0.6,
+                top_p=0.95,
+                max_tokens=65536,
+                frequency_penalty=0,
+                presence_penalty=0,
+                stream=False
+            )
+
+            if completion.choices and len(completion.choices) > 0:
+                return completion.choices[0].message.content.strip()
+            return None
+        except Exception as e:
+            print(f"Error generating general answer with NIM API: {e}")
+            return None

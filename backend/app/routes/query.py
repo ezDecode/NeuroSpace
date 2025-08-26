@@ -77,3 +77,23 @@ async def ask_question(payload: QueryRequest, current_user: str = Depends(get_ve
 	logger.info("QnA: total pipeline time %.2f ms", (time.time()-start)*1000)
 
 	return QueryResponse(answer=answer, references=references)
+
+@router.post("/ask_direct", response_model=QueryResponse)
+async def ask_question_direct(payload: QueryRequest, current_user: str = Depends(get_verified_user)):
+	start = time.time()
+	logger.info("Direct QnA: received question for user %s", payload.user_id)
+	if payload.user_id != current_user:
+		raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+	# Initialize service lazily
+	nim_service = get_nim_service()
+
+	ans_start = time.time()
+	answer = await nim_service.generate_general_answer(payload.question)
+	if not answer:
+		logger.error("Direct QnA: answer generation failed")
+		raise HTTPException(status_code=500, detail="Failed to generate answer")
+	logger.info("Direct QnA: answer generated in %.2f ms", (time.time()-ans_start)*1000)
+	logger.info("Direct QnA: total time %.2f ms", (time.time()-start)*1000)
+
+	return QueryResponse(answer=answer, references=[])

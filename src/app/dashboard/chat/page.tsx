@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
+import { ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { 
   PaperAirplaneIcon, 
   SparklesIcon,
@@ -76,11 +77,12 @@ const quickPrompts = [
 ];
 
 export default function ChatPage() {
-  const { messages, loading, error, sendMessage } = useChat();
+  const { messages, loading, error, mode, sendMessage } = useChat();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -113,6 +115,15 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen max-w-6xl mx-auto">
+      {/* Mode indicator */}
+      {mode && (
+        <div className="px-4 pt-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/60">
+            <span className={`w-2 h-2 rounded-full ${mode === 'general' ? 'bg-blue-400' : 'bg-emerald-400'}`}></span>
+            <span>{mode === 'general' ? 'General knowledge mode' : 'Document knowledge mode'}</span>
+          </div>
+        </div>
+      )}
       {/* Welcome screen */}
       {showWelcome && (
         <motion.div 
@@ -200,6 +211,20 @@ export default function ChatPage() {
                               {m.content}
                             </div>
                           </div>
+                          <button
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(m.content);
+                              setCopiedId(m.id);
+                              setTimeout(() => setCopiedId(null), 1500);
+                            }}
+                            className="ml-2 p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                            aria-label="Copy message"
+                          >
+                            {copiedId === m.id ? <CheckIcon className="h-4 w-4" /> : <ClipboardIcon className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <div className="text-xs text-white/40">
+                          {new Date(m.timestamp).toLocaleTimeString()}
                         </div>
                         {(m as unknown as { references?: Reference[] }).references && (
                           <ReferenceChips refs={(m as unknown as { references: Reference[] }).references} />
