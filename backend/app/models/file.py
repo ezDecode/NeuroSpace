@@ -5,7 +5,6 @@ from datetime import datetime
 class FileUploadRequest(BaseModel):
     file_key: str
     file_name: str
-    user_id: str
     file_size: int
     content_type: str
 

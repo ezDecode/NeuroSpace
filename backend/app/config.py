@@ -22,8 +22,8 @@ class Settings(BaseSettings):
 	supabase_service_role_key: str = Field(..., env="SUPABASE_SERVICE_ROLE_KEY")
 
 	# Clerk Authentication
-	clerk_jwks_url: str = Field(None, env="CLERK_JWKS_URL")
-	clerk_issuer: str = Field(None, env="CLERK_ISSUER")
+	clerk_jwks_url: str = Field(..., env="CLERK_JWKS_URL")
+	clerk_issuer: str = Field(..., env="CLERK_ISSUER")
 
 	# App
 	app_env: str = Field("development", env="APP_ENV")

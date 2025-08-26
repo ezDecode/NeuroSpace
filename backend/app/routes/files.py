@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 import os
 from app.models.file import FileUploadRequest
-from app.deps import get_verified_user, require_backend_key
+from app.deps import get_verified_user
 from app.services.supabase_service import SupabaseService
 
-router = APIRouter(dependencies=[Depends(require_backend_key)])
+router = APIRouter()
 supabase_service = SupabaseService()
 
 @router.get("/")
@@ -42,15 +42,14 @@ async def create_file(file_data: FileUploadRequest, current_user: str = Depends(
     Create a new file record in the database
     """
     try:
-        # Verify the user owns this file
-        if file_data.user_id != current_user:
-            raise HTTPException(status_code=403, detail="Not authorized to create file for this user")
+        # Use the current_user from authentication
+        user_id = current_user
         
         # Use the existing create_file_record method
         file_id = await supabase_service.create_file_record({
             'file_key': file_data.file_key,
             'file_name': file_data.file_name,
-            'user_id': file_data.user_id,
+            'user_id': user_id,
             'file_size': file_data.file_size,
             'content_type': file_data.content_type,
             'status': 'uploaded'
