@@ -33,10 +33,9 @@ function useSafeUser() {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, description: 'Overview & analytics' },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, description: 'Overview' },
   { name: 'Documents', href: '/dashboard/documents', icon: DocumentTextIcon, description: 'Manage your files' },
   { name: 'Chat', href: '/dashboard/chat', icon: ChatBubbleLeftRightIcon, description: 'AI conversations' },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon, description: 'Usage insights' },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon, description: 'Preferences' },
 ];
 
@@ -223,15 +222,6 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-700">
-          {!collapsed && (
-            <div className="mb-3 p-3 rounded-xl bg-gray-800/50 border border-gray-600">
-              <div className="text-xs text-gray-400 mb-1">Storage Used</div>
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-white h-2 rounded-full transition-all duration-1000" style={{ width: '65%' }} />
-              </div>
-              <div className="text-xs text-gray-500">6.5 GB of 10 GB</div>
-            </div>
-          )}
           
           <Link
             href="/dashboard/upload"

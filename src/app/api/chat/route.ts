@@ -22,8 +22,29 @@ export async function POST(request: NextRequest) {
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     const key = process.env.BACKEND_API_KEY;
-    
-    const resp = await fetch(`${backendUrl}/api/query/ask`, {
+
+    // Determine if the user has any documents
+    let hasDocuments = false;
+    try {
+      const filesResp = await fetch(`${backendUrl}/api/files/`, {
+        headers: {
+          'Authorization': `Bearer ${jwt}`,
+          ...(key ? { 'X-Backend-Key': key } : {}),
+          'Content-Type': 'application/json',
+        },
+      });
+      if (filesResp.ok) {
+        const filesData = await filesResp.json();
+        const total = typeof filesData?.total === 'number' ? filesData.total : Array.isArray(filesData?.files) ? filesData.files.length : 0;
+        hasDocuments = total > 0;
+      }
+    } catch (checkErr) {
+      // If the check fails, default to general mode to avoid RAG failures
+      hasDocuments = false;
+    }
+
+    const route = hasDocuments ? 'ask' : 'ask_direct';
+    const resp = await fetch(`${backendUrl}/api/query/${route}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -70,6 +91,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       ...data,
+      mode: hasDocuments ? 'document' : 'general',
       success: true 
     });
   } catch (e) {
