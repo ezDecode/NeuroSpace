@@ -15,6 +15,8 @@ import {
   CodeBracketIcon
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
 
 type Reference = { file_name: string; score?: number };
@@ -211,8 +213,8 @@ export default function ChatPage() {
                             <SparklesIcon className="h-4 w-4 text-white" />
                           </div>
                           <div className="flex-1">
-                            <div className="text-white leading-relaxed whitespace-pre-wrap">
-                              {m.content}
+                            <div className="text-white leading-relaxed prose-invert">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                             </div>
                           </div>
                           <button

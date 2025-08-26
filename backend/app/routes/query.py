@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from app.services.nim_service import NIMService
@@ -97,3 +98,78 @@ async def ask_question_direct(payload: QueryRequest, current_user: str = Depends
 	logger.info("Direct QnA: total time %.2f ms", (time.time()-start)*1000)
 
 	return QueryResponse(answer=answer, references=[])
+
+@router.post("/ask_stream")
+async def ask_question_stream(payload: QueryRequest, current_user: str = Depends(get_verified_user)):
+	start = time.time()
+	logger.info("QnA Stream: received question for user %s", payload.user_id)
+	if payload.user_id != current_user:
+		raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+	# Initialize services lazily
+	nim_service = get_nim_service()
+	pinecone_service = get_pinecone_service()
+
+	# 1) Embed query
+	embedding = await nim_service.generate_embedding(payload.question)
+	if not embedding:
+		logger.error("QnA Stream: embedding failed")
+		raise HTTPException(status_code=500, detail="Failed to embed query")
+
+	# 2) Pinecone search scoped to user_id
+	filter_dict = { "user_id": { "$eq": payload.user_id } }
+	matches = await pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
+
+	# 3) Assemble context from matches and build references
+	context_parts: List[str] = []
+	references: List[Dict[str, Any]] = []
+	for m in matches:
+		md = m.get('metadata', {})
+		text = md.get('text', '')
+		file_name = md.get('file_name', 'document')
+		context_parts.append(f"[Source: {file_name}]\n{text}")
+		references.append({
+			"file_name": file_name,
+			"score": m.get('score'),
+			"chunk_index": md.get('chunk_index'),
+			"file_key": md.get('file_key')
+		})
+	context = "\n\n".join(context_parts)
+
+	# 4) Streaming answer from NIM
+	async def token_generator():
+		try:
+			# Emit header first with mode and references
+			import json
+			header = json.dumps({"mode": "document", "references": references}) + "\n"
+			yield header
+			# Then emit tokens
+			async for token in nim_service.generate_answer_stream(payload.question, context):
+				yield token
+		except Exception as e:
+			yield f"Error: {str(e)}"
+
+	return StreamingResponse(token_generator(), media_type="text/plain")
+
+@router.post("/ask_direct_stream")
+async def ask_question_direct_stream(payload: QueryRequest, current_user: str = Depends(get_verified_user)):
+	start = time.time()
+	logger.info("Direct QnA Stream: received question for user %s", payload.user_id)
+	if payload.user_id != current_user:
+		raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+	# Initialize service lazily
+	nim_service = get_nim_service()
+
+	async def token_generator():
+		try:
+			# Emit header first with mode only
+			import json
+			yield json.dumps({"mode": "general"}) + "\n"
+			# Then emit tokens
+			async for token in nim_service.generate_general_answer_stream(payload.question):
+				yield token
+		except Exception as e:
+			yield f"Error: {str(e)}"
+
+	return StreamingResponse(token_generator(), media_type="text/plain")

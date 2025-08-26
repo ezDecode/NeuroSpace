@@ -351,6 +351,42 @@ body {
   animation: shimmer 1.5s infinite;
 }
 
+/* Basic markdown styling for chat content */
+.prose-invert {
+  color: inherit;
+}
+
+.prose-invert p {
+  margin: 0.5rem 0;
+}
+
+.prose-invert ul,
+.prose-invert ol {
+  margin: 0.5rem 1.25rem;
+  padding-left: 1rem;
+}
+
+.prose-invert code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.prose-invert pre {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+
+.prose-invert pre code {
+  background: transparent;
+  padding: 0;
+}
+
 /* Progress bar animations */
 .progress-bar {
   transition: width 0.5s ease-out;

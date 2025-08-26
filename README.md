@@ -94,12 +94,12 @@ src/
 │   │   ├── process/route.ts    # AI processing pipeline
 │   │   ├── files/route.ts      # File management
 │   │   └── chat/route.ts       # AI chat interface
+│   │   └── chat/stream/route.ts# Streaming chat proxy
 │   ├── dashboard/              # Protected Dashboard
 │   │   ├── page.tsx           # Dashboard overview
 │   │   ├── upload/page.tsx    # Enhanced upload UI
 │   │   ├── documents/page.tsx # File management
 │   │   ├── chat/page.tsx      # AI chat interface
-│   │   ├── analytics/page.tsx # Usage analytics
 │   │   └── settings/page.tsx  # User preferences
 │   ├── layout.tsx             # Root layout
 │   └── page.tsx               # Landing page
@@ -278,7 +278,14 @@ gray900: '#171717'   // Darkest
 3. **Vector Search** → Similarity-based document retrieval
 4. **Context Assembly** → Relevant document chunks
 5. **AI Generation** → Intelligent answer creation
-6. **Response Delivery** → Formatted with source references
+6. **Response Delivery** → Formatted with source references (supports streaming)
+
+#### Streaming details
+
+- Frontend posts to `/api/chat/stream` and reads a ReadableStream
+- The first line of the stream is a JSON header: `{ "mode": "document" | "general" }`
+- Subsequent chunks are raw UTF-8 text tokens until completion
+- Backend routes: `/api/query/ask_stream` (RAG) and `/api/query/ask_direct_stream` (general)
 
 ## 🔧 **Development Guide**
 
