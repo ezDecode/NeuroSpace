@@ -34,12 +34,33 @@ export async function DELETE(
     });
 
     if (!response.ok) {
-      throw new Error(`Backend responded with status: ${response.status}`);
+      let errorMessage = `Backend responded with status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.detail || errorMessage;
+      } catch (jsonError) {
+        try {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        } catch (textError) {
+          console.error('Failed to parse backend error response:', textError);
+        }
+      }
+      return NextResponse.json({ 
+        error: errorMessage,
+        success: false 
+      }, { status: response.status });
     }
 
-    return NextResponse.json({ message: 'File deleted successfully' });
+    return NextResponse.json({ 
+      message: 'File deleted successfully',
+      success: true 
+    });
   } catch (error) {
     console.error('Error deleting file:', error);
-    return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to delete file',
+      success: false 
+    }, { status: 500 });
   }
 }

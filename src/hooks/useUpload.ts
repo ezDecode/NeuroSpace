@@ -4,7 +4,7 @@ import { apiClient } from '@/utils/apiClient';
 
 export type UploadStatus = 'idle' | 'signing' | 'uploading' | 'processing' | 'done' | 'error';
 
-type SignResponse = { signedUrl: string; fileKey: string; fileName: string };
+type SignResponse = { url: string; fileKey: string; fileName: string };
 
 type ProcessResponse = { success: boolean };
 
@@ -29,7 +29,7 @@ export function useUpload() {
       );
 
       setStatus('uploading');
-      await fetch(signData.signedUrl, {
+      await fetch(signData.url, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type },

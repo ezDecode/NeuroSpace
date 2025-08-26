@@ -17,85 +17,33 @@ import {
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
+import useSWR from 'swr';
 
-// Mock data - in real app, this would come from API
-const stats = [
-  {
-    title: 'Total Documents',
-    value: '24',
-    change: '+12%',
-    changeType: 'positive',
-    icon: DocumentTextIcon,
-    color: 'from-blue-500 to-cyan-500',
-    description: 'Files uploaded'
-  },
-  {
-    title: 'Chat Sessions',
-    value: '156',
-    change: '+8%',
-    changeType: 'positive',
-    icon: ChatBubbleLeftRightIcon,
-    color: 'from-purple-500 to-pink-500',
-    description: 'This month'
-  },
-  {
-    title: 'Storage Used',
-    value: '6.5 GB',
-    change: '+2.1 GB',
-    changeType: 'neutral',
-    icon: FolderIcon,
-    color: 'from-green-500 to-emerald-500',
-    description: 'Of 10 GB total'
-  },
-  {
-    title: 'AI Responses',
-    value: '1,247',
-    change: '+23%',
-    changeType: 'positive',
-    icon: CpuChipIcon,
-    color: 'from-orange-500 to-red-500',
-    description: 'Generated today'
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch (jsonError) {
+      try {
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+      } catch (textError) {
+        console.error('Failed to parse error response:', textError);
+      }
+    }
+    throw new Error(errorMessage);
   }
-];
-
-const recentActivity = [
-  {
-    id: 1,
-    type: 'upload',
-    title: 'Project Proposal.pdf',
-    description: 'Document uploaded successfully',
-    time: '2 minutes ago',
-    icon: DocumentTextIcon,
-    color: 'text-blue-400'
-  },
-  {
-    id: 2,
-    type: 'chat',
-    title: 'New conversation started',
-    description: 'Asked about Q4 strategy',
-    time: '15 minutes ago',
-    icon: ChatBubbleLeftRightIcon,
-    color: 'text-purple-400'
-  },
-  {
-    id: 3,
-    type: 'processing',
-    title: 'Technical Manual.docx',
-    description: 'Document processing completed',
-    time: '1 hour ago',
-    icon: DocumentMagnifyingGlassIcon,
-    color: 'text-green-400'
-  },
-  {
-    id: 4,
-    type: 'chat',
-    title: 'Conversation ended',
-    description: '5 messages exchanged',
-    time: '2 hours ago',
-    icon: ChatBubbleLeftRightIcon,
-    color: 'text-purple-400'
+  
+  try {
+    return await response.json();
+  } catch (jsonError) {
+    console.error('Failed to parse response JSON:', jsonError);
+    throw new Error('Server returned invalid JSON response');
   }
-];
+};
 
 const quickActions = [
   {
@@ -133,8 +81,47 @@ const quickActions = [
 ];
 
 export default function Dashboard() {
-  // Debug log to verify design system exports are working
-  console.log('Design System Debug:', { componentClasses, getButtonClass });
+  const { data: filesData, isLoading: filesLoading } = useSWR('/api/files', fetcher);
+  
+  // Calculate real stats from API data
+  const stats = [
+    {
+      title: 'Total Documents',
+      value: filesLoading ? '...' : (filesData?.files?.length || 0).toString(),
+      change: '+0%',
+      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
+      icon: DocumentTextIcon,
+      color: 'from-blue-500 to-cyan-500',
+      description: 'Files uploaded'
+    },
+    {
+      title: 'Chat Sessions',
+      value: '0',
+      change: '+0%',
+      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
+      icon: ChatBubbleLeftRightIcon,
+      color: 'from-purple-500 to-pink-500',
+      description: 'This month'
+    },
+    {
+      title: 'Storage Used',
+      value: filesLoading ? '...' : `${((filesData?.files?.reduce((acc: number, file: any) => acc + (file.file_size || 0), 0) || 0) / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+      change: '+0 GB',
+      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
+      icon: FolderIcon,
+      color: 'from-green-500 to-emerald-500',
+      description: 'Of 10 GB total'
+    },
+    {
+      title: 'AI Responses',
+      value: '0',
+      change: '+0%',
+      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
+      icon: CpuChipIcon,
+      color: 'from-orange-500 to-red-500',
+      description: 'Generated today'
+    }
+  ];
   
   return (
     <div className={componentClasses.layout.page}>
@@ -239,7 +226,7 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* Recent Activity */}
+      {/* Recent Documents */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -247,38 +234,62 @@ export default function Dashboard() {
         className={componentClasses.layout.section}
       >
         <div className="flex items-center justify-between">
-          <h2 className={designTokens.typography.h2}>Recent Activity</h2>
-          <Link href="/dashboard/activity" className="text-sm text-white/60 hover:text-white transition-colors duration-300">
+          <h2 className={designTokens.typography.h2}>Recent Documents</h2>
+          <Link href="/dashboard/documents" className="text-sm text-white/60 hover:text-white transition-colors duration-300">
             View all
           </Link>
         </div>
         
-        <div className="space-y-3">
-          {recentActivity.map((activity, index) => {
-            const ActivityIcon = activity.icon;
-            return (
+        {filesLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-center space-x-4 p-4 rounded-xl border border-white/20 bg-white/5">
+                <div className="w-10 h-10 rounded-lg bg-white/10 animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-white/10 rounded animate-pulse"></div>
+                  <div className="h-3 bg-white/5 rounded animate-pulse w-3/4"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filesData?.files?.length > 0 ? (
+          <div className="space-y-3">
+            {filesData.files.slice(0, 5).map((file: any, index: number) => (
               <motion.div
-                key={activity.id}
+                key={file.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
                 className="flex items-center space-x-4 p-4 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300"
               >
-                <div className={`w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center ${activity.color}`}>
-                  <ActivityIcon className="h-5 w-5" />
+                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-blue-400">
+                  <DocumentTextIcon className="h-5 w-5" />
                 </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white">{activity.title}</div>
-                <div className="text-xs text-white/60">{activity.description}</div>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-white/40">
-                <ClockIcon className="h-3 w-3" />
-                <span>{activity.time}</span>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white truncate">{file.file_name}</div>
+                  <div className="text-xs text-white/60">
+                    {((file.file_size || 0) / (1024 * 1024)).toFixed(2)} MB • {new Date(file.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    file.status === 'processed' ? 'bg-green-500/20 text-green-400' :
+                    file.status === 'processing' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-gray-500/20 text-gray-400'
+                  }`}>
+                    {file.status || 'pending'}
+                  </span>
+                </div>
               </motion.div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <DocumentTextIcon className="h-12 w-12 text-white/20 mx-auto mb-4" />
+            <div className="text-white/60 mb-2">No documents yet</div>
+            <div className="text-white/40 text-sm">Upload your first document to get started</div>
+          </div>
+        )}
       </motion.div>
 
       {/* Bottom CTA */}

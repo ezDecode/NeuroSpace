@@ -48,9 +48,31 @@ export default function DocumentsPage() {
       setLoading(true);
       setError(null);
       const response = await fetch('/api/files');
-      if (!response.ok) throw new Error('Failed to fetch files');
-      const data = await response.json();
-      setFiles(data.files);
+      if (!response.ok) {
+        let errorMessage = 'Failed to fetch files';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Failed to parse error response:', textError);
+          }
+        }
+        throw new Error(errorMessage);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse files response JSON:', jsonError);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      setFiles(data.files || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch files');
     } finally {

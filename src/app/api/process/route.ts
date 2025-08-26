@@ -42,11 +42,28 @@ export async function POST(request: NextRequest) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Backend processing failed: ${response.status} - ${errorText}`);
+        let errorMessage = `Backend processing failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.detail || errorMessage;
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Failed to parse backend error response:', textError);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse backend response JSON:', jsonError);
+        throw new Error('Backend returned invalid JSON response');
+      }
 
       return NextResponse.json({
         success: true,
@@ -79,6 +96,9 @@ export async function POST(request: NextRequest) {
       ? `Failed to process file: ${error instanceof Error ? error.message : 'Unknown error'}`
       : 'Failed to process file';
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ 
+      error: errorMessage,
+      success: false 
+    }, { status: 500 });
   }
 }

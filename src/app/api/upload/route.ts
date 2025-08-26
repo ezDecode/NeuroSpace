@@ -4,6 +4,26 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 
+// TypeScript types for the API
+interface UploadRequest {
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+}
+
+interface UploadResponse {
+  url: string;
+  fileKey: string;
+  fileName: string;
+  success: true;
+}
+
+interface ErrorResponse {
+  error: string;
+  details?: any;
+  success: false;
+}
+
 const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
   credentials: {
@@ -44,19 +64,22 @@ const validateFileExtension = (fileName: string, mimeType: string): boolean => {
   return true;
 };
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<UploadResponse | ErrorResponse>> {
   try {
     if (!isProd) console.log('Upload API called');
     
     const { userId } = await auth();
     if (!userId) {
       if (!isProd) console.log('No user ID found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        success: false 
+      }, { status: 401 });
     }
  
     if (!isProd) console.log('User ID:', userId);
  
-    const requestBody = await request.json();
+    const requestBody: UploadRequest = await request.json();
     if (!isProd) console.log('Raw request body:', requestBody);
     
     const { fileName, fileType, fileSize } = requestBody;
@@ -80,8 +103,9 @@ export async function POST(request: NextRequest) {
           fileSize
         });
       }
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Missing required fields',
+        success: false,
         details: {
           fileName: !fileName ? 'missing' : 'ok',
           fileType: !fileType ? 'missing' : 'ok',
@@ -92,24 +116,35 @@ export async function POST(request: NextRequest) {
 
     if (!validateFileExtension(fileName, fileType)) {
       if (!isProd) console.log('Invalid file extension/type');
-      return NextResponse.json({ error: 'File type not supported' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'File type not supported',
+        success: false 
+      }, { status: 400 });
     }
 
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (fileSize > maxSize) {
       if (!isProd) console.log('File too large');
       return NextResponse.json(
-        { error: 'File size too large. Maximum 10MB allowed.' },
+        { 
+          error: 'File size too large. Maximum 10MB allowed.',
+          success: false 
+        },
         { status: 400 },
       );
     }
 
     if (fileName.length > 255) {
       if (!isProd) console.log('File name too long');
-      return NextResponse.json({ error: 'File name too long' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'File name too long',
+        success: false 
+      }, { status: 400 });
     }
 
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    // Encode the filename properly for S3
+    const encodedFileName = encodeURIComponent(fileName);
     const safeFileName = fileName.replace(/[^a-zA-Z0-9-_.]/g, '_');
     const fileKey = `uploads/${userId}/${uuidv4()}.${fileExtension}`;
 
@@ -133,7 +168,10 @@ export async function POST(request: NextRequest) {
           filename: fileKey.substring(`uploads/${userId}/`.length)
         });
       }
-      return NextResponse.json({ error: 'Invalid file key generated' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Invalid file key generated',
+        success: false 
+      }, { status: 500 });
     }
 
     // Check environment variables
@@ -153,7 +191,10 @@ export async function POST(request: NextRequest) {
 
     if (!bucketName || !region || !accessKeyId || !secretAccessKey) {
       console.error('Missing required AWS environment variables');
-      return NextResponse.json({ error: 'AWS configuration missing' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'AWS configuration missing',
+        success: false 
+      }, { status: 500 });
     }
 
     const command = new PutObjectCommand({
@@ -162,7 +203,7 @@ export async function POST(request: NextRequest) {
       ContentType: fileType,
       Metadata: {
         userId,
-        originalName: safeFileName,
+        originalName: encodedFileName, // Use encoded filename in metadata
         uploadedAt: new Date().toISOString(),
       },
     });
@@ -171,7 +212,13 @@ export async function POST(request: NextRequest) {
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
     if (!isProd) console.log('Signed URL generated successfully');
 
-    const res = NextResponse.json({ signedUrl, fileKey, fileName: safeFileName });
+    // Return the URL in a JSON object as expected by frontend
+    const res = NextResponse.json({ 
+      url: signedUrl, 
+      fileKey, 
+      fileName: safeFileName,
+      success: true as const
+    });
     res.headers.set('X-Content-Type-Options', 'nosniff');
     res.headers.set('Referrer-Policy', 'no-referrer');
     return res;
@@ -181,6 +228,9 @@ export async function POST(request: NextRequest) {
     const errorMessage = isDevelopment
       ? `Failed to generate upload URL: ${error instanceof Error ? error.message : 'Unknown error'}`
       : 'Failed to generate upload URL';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ 
+      error: errorMessage,
+      success: false as const
+    }, { status: 500 });
   }
 }

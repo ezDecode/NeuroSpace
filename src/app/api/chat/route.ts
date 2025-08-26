@@ -38,18 +38,46 @@ export async function POST(request: NextRequest) {
     });
 
     if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
-      console.error('Backend error:', resp.status, errorData);
+      let errorMessage = `Backend error: ${resp.status}`;
+      try {
+        const errorData = await resp.json();
+        errorMessage = errorData?.detail || errorData?.error || errorMessage;
+      } catch (jsonError) {
+        try {
+          const errorText = await resp.text();
+          errorMessage = errorText || errorMessage;
+        } catch (textError) {
+          console.error('Failed to parse backend error response:', textError);
+        }
+      }
+      console.error('Backend error:', resp.status, errorMessage);
       return NextResponse.json({ 
-        error: errorData?.detail || `Backend error: ${resp.status}` 
+        error: errorMessage,
+        success: false 
       }, { status: 500 });
     }
 
-    const data = await resp.json();
-    return NextResponse.json(data);
+    let data;
+    try {
+      data = await resp.json();
+    } catch (jsonError) {
+      console.error('Failed to parse backend response JSON:', jsonError);
+      return NextResponse.json({ 
+        error: 'Backend returned invalid JSON response',
+        success: false 
+      }, { status: 502 });
+    }
+    
+    return NextResponse.json({ 
+      ...data,
+      success: true 
+    });
   } catch (e) {
     console.error('Chat API error:', e);
     const msg = e instanceof Error ? e.message : 'Server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ 
+      error: msg,
+      success: false 
+    }, { status: 500 });
   }
 }

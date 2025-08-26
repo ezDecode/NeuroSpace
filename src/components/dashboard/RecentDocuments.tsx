@@ -13,7 +13,31 @@ interface FileData {
   created_at: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch (jsonError) {
+      try {
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+      } catch (textError) {
+        console.error('Failed to parse error response:', textError);
+      }
+    }
+    throw new Error(errorMessage);
+  }
+  
+  try {
+    return await response.json();
+  } catch (jsonError) {
+    console.error('Failed to parse response JSON:', jsonError);
+    throw new Error('Server returned invalid JSON response');
+  }
+};
 
 export default function RecentDocuments() {
   const { data, isLoading, error } = useSWR('/api/files', fetcher, { revalidateOnFocus: true });

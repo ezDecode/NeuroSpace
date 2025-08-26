@@ -11,10 +11,28 @@ function extractError(data: unknown, fallback: string): string {
 export const apiClient = {
   async get<T extends Json = Json>(url: string, headers: Record<string, string> = {}) {
     const res = await fetch(url, { headers });
-    const data = (await res.json().catch(() => ({}))) as T;
+    
+    let data: T;
+    try {
+      data = (await res.json()) as T;
+    } catch (jsonError) {
+      console.error('Failed to parse response JSON:', jsonError);
+      if (!res.ok) {
+        // If we can't parse JSON and the response is not ok, try to get text
+        try {
+          const text = await res.text();
+          throw new Error(text || `HTTP error ${res.status}: ${res.statusText}`);
+        } catch (textError) {
+          throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
+        }
+      }
+      throw new Error('Server returned invalid JSON response');
+    }
+    
     if (!res.ok) throw new Error(extractError(data, res.statusText));
     return { data, status: res.status };
   },
+  
   async post<T extends Json = Json>(
     url: string,
     body: unknown,
@@ -25,7 +43,24 @@ export const apiClient = {
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
     });
-    const data = (await res.json().catch(() => ({}))) as T;
+    
+    let data: T;
+    try {
+      data = (await res.json()) as T;
+    } catch (jsonError) {
+      console.error('Failed to parse response JSON:', jsonError);
+      if (!res.ok) {
+        // If we can't parse JSON and the response is not ok, try to get text
+        try {
+          const text = await res.text();
+          throw new Error(text || `HTTP error ${res.status}: ${res.statusText}`);
+        } catch (textError) {
+          throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
+        }
+      }
+      throw new Error('Server returned invalid JSON response');
+    }
+    
     if (!res.ok) throw new Error(extractError(data, res.statusText));
     return { data, status: res.status };
   },

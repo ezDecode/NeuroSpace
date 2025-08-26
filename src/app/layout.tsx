@@ -21,7 +21,7 @@ export default function RootLayout({
   const _dynamic = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? undefined : 'force-dynamic';
   return (
     <MaybeClerkProvider>
-      <html lang="en" className="scroll-smooth">
+      <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
         <body className={`${inter.className} min-h-screen bg-[#07080B] text-slate-100 antialiased`}>
           <div className="grid">{children}</div>
           <Toaster position="top-right" />

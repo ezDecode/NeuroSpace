@@ -78,33 +78,63 @@ export default function UploadPage() {
         type: fileWrapper.type
       });
 
-      const formData = new FormData();
-      formData.append('file', fileWrapper.file);
-      formData.append('fileName', fileWrapper.name);
-      formData.append('fileType', fileWrapper.type);
-
       console.log('uploadFileToS3 called with:', {
         fileName: fileWrapper.name,
         fileSize: fileWrapper.size,
         fileType: fileWrapper.type
       });
 
+      // Call the upload URL API with JSON payload
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: fileWrapper.name,
+          fileType: fileWrapper.type,
+          fileSize: fileWrapper.size,
+        }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        let errorMessage = `Upload failed: ${response.status}`;
+        try {
+          // Clone the response to avoid "body stream already read" error
+          const responseClone = response.clone();
+          const errorData = await responseClone.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          // If JSON parsing fails, try to get text response
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Failed to parse error response:', textError);
+          }
+        }
         console.log('Upload URL response status:', response.status);
-        console.error('Failed to get upload URL:', errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        console.error('Failed to get upload URL:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       console.log('Got signed URL, uploading to S3...');
-      const { fileKey, uploadUrl } = await response.json();
+      // Expect JSON object with { url, fileKey, fileName }
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse upload response JSON:', jsonError);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      if (!responseData.url || !responseData.fileKey) {
+        throw new Error('Invalid response: missing url or fileKey');
+      }
+      
+      const { url, fileKey } = responseData;
 
-      const uploadResponse = await fetch(uploadUrl, {
+      const uploadResponse = await fetch(url, {
         method: 'PUT',
         body: fileWrapper.file,
         headers: {
@@ -147,11 +177,32 @@ export default function UploadPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to create file record');
+        let errorMessage = 'Failed to create file record';
+        try {
+          // Clone the response to avoid "body stream already read" error
+          const responseClone = response.clone();
+          const errorData = await responseClone.json();
+          errorMessage = errorData.error || errorData.detail || errorMessage;
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Failed to parse error response:', textError);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      return await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse createFileRecord response JSON:', jsonError);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      return result;
     } catch (error) {
       console.error('createFileRecord error:', error);
       throw error;
@@ -172,11 +223,32 @@ export default function UploadPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to process file');
+        let errorMessage = 'Failed to process file';
+        try {
+          // Clone the response to avoid "body stream already read" error
+          const responseClone = response.clone();
+          const errorData = await responseClone.json();
+          errorMessage = errorData.error || errorData.detail || errorMessage;
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Failed to parse error response:', textError);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      return await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse processFile response JSON:', jsonError);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      return result;
     } catch (error) {
       console.error('processFile error:', error);
       throw error;
