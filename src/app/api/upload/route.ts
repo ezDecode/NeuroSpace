@@ -46,6 +46,7 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 const isProd = process.env.NODE_ENV === 'production';
+const MAX_FILE_SIZE_MB = Number(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 25);
 
 const validateFileKey = (fileKey: string, userId: string): boolean => {
   // Check if it starts with the correct path
@@ -127,12 +128,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       }, { status: 400 });
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = MAX_FILE_SIZE_MB * 1024 * 1024; // unified max size
     if (fileSize > maxSize) {
       if (!isProd) console.log('File too large');
       return NextResponse.json(
         { 
-          error: 'File size too large. Maximum 10MB allowed.',
+          error: `File size too large. Maximum ${MAX_FILE_SIZE_MB}MB allowed.`,
           success: false 
         },
         { status: 400 },

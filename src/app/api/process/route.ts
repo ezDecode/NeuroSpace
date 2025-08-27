@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
         success: true,
         jobId: result.job_id,
         message: result.message,
+        status: result.status,
       });
     } catch (error) {
       console.error('Backend processing error:', error);

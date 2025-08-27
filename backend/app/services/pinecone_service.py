@@ -3,6 +3,8 @@ from pinecone import Pinecone, ServerlessSpec
 from typing import List, Optional, Dict, Any
 import uuid
 import logging
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+import pybreaker
 import re
 
 logger = logging.getLogger(__name__)
@@ -140,6 +142,12 @@ class PineconeService:
             logger.error(f"Error initializing Pinecone index: {e}")
             raise ValueError(f"Failed to initialize Pinecone index: {e}")
 
+    # Circuit breakers
+    _upsert_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30, name="pinecone_upsert_breaker")
+    _query_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30, name="pinecone_query_breaker")
+
+    @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
+    def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> bool:
     def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> Dict[str, Any]:
         """
         Upsert vectors to Pinecone index with configurable batch size and detailed result summary
@@ -204,6 +212,7 @@ class PineconeService:
             for i in range(0, len(upsert_data), batch_size):
                 batch = upsert_data[i:i + batch_size]
                 try:
+                    self._upsert_breaker.call(self.index.upsert, vectors=batch)
                     response = self.index.upsert(vectors=batch)
                     # Pinecone v5 returns dict-like with upserted_count possibly
                     upserted_count = None
@@ -235,6 +244,7 @@ class PineconeService:
             logger.error(f"Error upserting vectors to Pinecone: {e}")
             return {"total": len(vectors or []), "accepted": 0, "skipped": len(vectors or []), "errors": [str(e)]}
 
+    @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
     def search_similar(self, query_embedding: List[float], top_k: int = 5, filter_dict: Optional[Dict] = None) -> List[Dict]:
         """
         Search for similar vectors with comprehensive validation and error handling
@@ -267,7 +277,7 @@ class PineconeService:
             logger.debug(f"Searching with top_k={top_k}, filter={validated_filter}")
 
             # Perform search
-            results = self.index.query(
+            results = self._query_breaker.call(self.index.query,
                 vector=query_embedding,
                 top_k=top_k,
                 include_metadata=True,

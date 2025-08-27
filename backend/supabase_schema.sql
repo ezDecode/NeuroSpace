@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id UUID REFERENCES files(id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
-    status TEXT DEFAULT 'processing',
+    status TEXT DEFAULT 'queued',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE
 );

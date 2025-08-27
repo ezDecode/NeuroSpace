@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - NEXT_PUBLIC_BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_MAX_FILE_SIZE_MB=25
     ports:
       - "3000:3000"
     depends_on:
@@ -20,7 +21,29 @@ services:
       dockerfile: backend/Dockerfile
     env_file:
       - ./backend/.env
+    environment:
+      - MAX_FILE_SIZE_MB=25
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO --concurrency=1

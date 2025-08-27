@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 	debug: bool = Field(True, env="DEBUG")
 	frontend_origin: str = Field("http://localhost:3000", env="FRONTEND_ORIGIN")
 
+	# File uploads
+	max_file_size_mb: int = Field(25, env="MAX_FILE_SIZE_MB")
+
 	model_config = {
 		"env_file": ".env",
 		"extra": "ignore"  # Allow extra environment variables

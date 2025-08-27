@@ -54,6 +54,7 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       }
       
       const data = await response.json();
+      const processedFiles: File[] = (data.files || []).filter((file: File) => file.status === 'processed');
       const allFiles: File[] = data.files || [];
       const processedFiles = allFiles.filter((file: File) => file.status === 'processed');
       const errored = allFiles.filter((file: File) => file.status === 'error');

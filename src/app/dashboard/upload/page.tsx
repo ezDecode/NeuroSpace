@@ -17,6 +17,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 import { ProgressBar } from '@/components/ui/LoadingStates';
+import { supabase } from '@/lib/supabaseClient';
 
 interface FileWrapper {
   file: File;
@@ -27,6 +28,7 @@ interface FileWrapper {
   progress: number;
   error?: string;
   fileKey?: string;
+  jobId?: string;
 }
 
 const acceptedFileTypes = {
@@ -43,6 +45,26 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
+  // Subscribe to job updates via Supabase Realtime if configured
+  const subscribeToJob = useCallback((jobId: string, index: number) => {
+    try {
+      if (!supabase) return;
+      const channel = supabase.channel(`job:${jobId}`);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'processing_jobs', filter: `id=eq.${jobId}` }, (payload) => {
+        const row: any = payload.new || payload.old;
+        const status = row?.status as string;
+        if (status === 'completed') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success', progress: 100 } : f));
+          channel.unsubscribe();
+        } else if (status === 'failed') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error', error: 'Background processing failed' } : f));
+          channel.unsubscribe();
+        } else if (status === 'processing') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'processing', progress: Math.max(f.progress, 85) } : f));
+        }
+      }).subscribe();
+    } catch {}
+  }, [supabase, setFiles]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     console.log('Files dropped:', acceptedFiles);
@@ -59,11 +81,23 @@ export default function UploadPage() {
     setFiles(prev => [...prev, ...newFiles]);
   }, []);
 
+  const MAX_FILE_SIZE_MB = Number(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 25);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: acceptedFileTypes,
     multiple: true,
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: MAX_FILE_SIZE_MB * 1024 * 1024,
+    onDropRejected: (rejections) => {
+      rejections.forEach(r => {
+        const fileName = r.file.name;
+        const sizeError = r.errors.find(e => e.code === 'file-too-large');
+        if (sizeError) {
+          toast.error(`${fileName} is too large. Max ${MAX_FILE_SIZE_MB}MB.`);
+        } else {
+          toast.error(`${fileName} was rejected.`);
+        }
+      });
+    }
   });
 
   const removeFile = (index: number) => {
@@ -250,10 +284,21 @@ export default function UploadPage() {
         throw new Error('Server returned invalid JSON response');
       }
       
-      return result;
+      return result as { success: boolean; jobId: string; status: string; message: string };
     } catch (error) {
       console.error('processFile error:', error);
       throw error;
+    }
+  };
+
+  const pollJobStatus = async (jobId: string): Promise<'completed' | 'failed' | 'processing' | 'queued'> => {
+    try {
+      const resp = await fetch(`/api/processing/status?jobId=${encodeURIComponent(jobId)}`, { cache: 'no-store' });
+      if (!resp.ok) return 'processing';
+      const data = await resp.json();
+      return (data.status as any) || 'processing';
+    } catch {
+      return 'processing';
     }
   };
 
@@ -286,16 +331,37 @@ export default function UploadPage() {
           index === i ? { ...f, status: 'processing', progress: 75 } : f
         ));
         
-        // Process file
-        await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
+        // Enqueue processing
+        const enqueueResult = await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
+        const jobId = enqueueResult.jobId;
+        // Attempt realtime subscription (best-effort)
+        subscribeToJob(jobId, i);
         
-        // Mark as success
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, status: 'success', progress: 100, fileKey } : f
-        ));
+        // Poll job status until completion or failure
+        let attempts = 0;
+        let status: 'completed' | 'failed' | 'processing' | 'queued' = enqueueResult.status as any;
+        while (attempts < 120 && (status === 'processing' || status === 'queued')) { // up to ~2 minutes
+          await new Promise(r => setTimeout(r, 1000));
+          status = await pollJobStatus(jobId);
+          attempts += 1;
+        }
         
-        successCount++;
-        toast.success(`${fileWrapper.name} uploaded and processed successfully!`);
+        if (status === 'completed') {
+          // Mark as success
+          setFiles(prev => prev.map((f, index) => 
+            index === i ? { ...f, status: 'success', progress: 100, fileKey, jobId } : f
+          ));
+          successCount++;
+          toast.success(`${fileWrapper.name} uploaded and processed successfully!`);
+        } else if (status === 'failed') {
+          throw new Error('Background processing failed');
+        } else {
+          // timed out waiting
+          setFiles(prev => prev.map((f, index) => 
+            index === i ? { ...f, status: 'processing', progress: 90, fileKey, jobId } : f
+          ));
+          toast('Processing is taking longer; we will finish in the background.', { icon: '⏳' });
+        }
         
       } catch (error) {
         console.error(`Error uploading ${fileWrapper.name}:`, error);
@@ -417,7 +483,7 @@ export default function UploadPage() {
             or click to browse files
           </p>
           <p className="text-sm text-gray-500">
-            Maximum file size: 50MB • Supported: PDF, DOC, DOCX, TXT, MD, RTF
+            Maximum file size: {MAX_FILE_SIZE_MB}MB • Supported: PDF, DOC, DOCX, TXT, MD, RTF
           </p>
         </div>
       </motion.div>
