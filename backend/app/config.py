@@ -32,9 +32,11 @@ class Settings(BaseSettings):
 	# App
 	app_env: str = Field("development", env="APP_ENV")
 	debug: bool = Field(True, env="DEBUG")
+	frontend_origin: str = Field("http://localhost:3000", env="FRONTEND_ORIGIN")
 
 	model_config = {
-		"env_file": ".env"
+		"env_file": ".env",
+		"extra": "ignore"  # Allow extra environment variables
 	}
 
 settings = Settings()
