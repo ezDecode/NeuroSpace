@@ -209,7 +209,7 @@ export default function UploadPage() {
     }
   };
 
-  const processFile = async (fileKey: string, fileName: string) => {
+  const processFile = async (fileKey: string, fileName: string, fileSize: number, fileType: string) => {
     try {
       const response = await fetch('/api/process', {
         method: 'POST',
@@ -219,6 +219,8 @@ export default function UploadPage() {
         body: JSON.stringify({
           fileKey: fileKey,
           fileName: fileName,
+          fileSize: fileSize,
+          fileType: fileType,
         }),
       });
 
@@ -285,7 +287,7 @@ export default function UploadPage() {
         ));
         
         // Process file
-        await processFile(fileKey, fileWrapper.name);
+        await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
         
         // Mark as success
         setFiles(prev => prev.map((f, index) => 

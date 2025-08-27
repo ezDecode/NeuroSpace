@@ -46,6 +46,17 @@ class S3Service:
             print(f"Error getting file metadata: {e}")
             return None
 
+    async def get_file_size(self, file_key: str) -> Optional[int]:
+        """
+        Get file size from S3
+        """
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            return response.get('ContentLength', 0)
+        except ClientError as e:
+            print(f"Error getting file size from S3: {e}")
+            return None
+
     def cleanup_temp_file(self, file_path: str):
         """
         Clean up temporary file

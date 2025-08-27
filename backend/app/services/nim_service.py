@@ -1,62 +1,181 @@
 import os
 import requests
+import requests.exceptions
 import json
-from typing import List, Optional
-import httpx
+import time
+from typing import List, Optional, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+class EmbeddingError(Exception):
+    """Custom exception for embedding-related errors"""
+    def __init__(self, message: str, error_code: str = None, status_code: int = None):
+        self.message = message
+        self.error_code = error_code
+        self.status_code = status_code
+        super().__init__(self.message)
 
 class NIMService:
     def __init__(self):
         self.api_key = os.getenv('NVIDIA_NIM_API_KEY')
         self.base_url = os.getenv('NVIDIA_NIM_BASE_URL', 'https://integrate.api.nvidia.com/v1')
+        
+        # Validate API key on initialization
+        if not self.api_key:
+            raise EmbeddingError(
+                "NVIDIA_NIM_API_KEY environment variable is not set",
+                error_code="MISSING_API_KEY"
+            )
+        
         self.headers = {
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         }
         # Use direct HTTP requests instead of OpenAI client to avoid proxy issues
         self.client = None  # Will use direct requests
-        print("NIM Service initialized with direct HTTP client")
+        logger.info("NIM Service initialized with direct HTTP client")
 
-    async def generate_embedding(self, text: str) -> Optional[List[float]]:
+    async def generate_embedding(self, text: str, max_retries: int = 2) -> Optional[List[float]]:
         """
-        Generate embedding for a text using Nvidia NIM API
+        Generate embedding for a text using Nvidia NIM API with detailed error handling
         """
-        try:
-            # Using the nvidia-embed-qa-v1 model for embeddings
-            url = f"{self.base_url}/v1/chat/completions"
+        # Input validation
+        if not text or not isinstance(text, str):
+            raise EmbeddingError(
+                "Input text is empty or not a string",
+                error_code="INVALID_INPUT"
+            )
             
-            payload = {
-                "model": "nvidia-embed-qa-v1",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": text
-                    }
-                ],
-                "temperature": 0.0,
-                "max_tokens": 1024
-            }
+        text = text.strip()
+        if not text:
+            raise EmbeddingError(
+                "Input text is empty after stripping whitespace",
+                error_code="EMPTY_INPUT"
+            )
+        
+        # Check text length (NVIDIA models typically have limits)
+        if len(text) > 8192:  # Conservative limit
+            logger.warning(f"Input text is very long ({len(text)} chars), might cause issues")
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Use the correct embeddings endpoint
+                url = f"{self.base_url}/embeddings"
+                
+                payload = {
+                    "model": "nvidia/nv-embedqa-e5-v5",
+                    "input": text,
+                    "input_type": "query",
+                    "encoding_format": "float"
+                }
 
-            response = requests.post(url, headers=self.headers, json=payload)
-            
-            if response.status_code == 200:
-                result = response.json()
-                # Extract embedding from response
-                # Note: The actual response structure may vary based on the model
-                if 'choices' in result and len(result['choices']) > 0:
-                    content = result['choices'][0].get('message', {}).get('content', '')
-                    # Parse the embedding from the response
-                    # This is a placeholder - actual implementation depends on NIM API response format
-                    return self._parse_embedding_response(content)
+                logger.debug(f"Attempting embedding generation (attempt {attempt + 1}/{max_retries + 1})")
+                
+                response = requests.post(
+                    url, 
+                    headers=self.headers, 
+                    json=payload,
+                    timeout=(10, 30)  # 10s connect, 30s read timeout
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    # Extract embedding from response
+                    if 'data' in result and len(result['data']) > 0:
+                        embedding = result['data'][0].get('embedding')
+                        if embedding and isinstance(embedding, list) and len(embedding) > 0:
+                            logger.debug(f"Embedding generated successfully, dimension: {len(embedding)}")
+                            return embedding
+                        else:
+                            raise EmbeddingError(
+                                f"No valid embedding found in response. Data structure: {result['data'][0].keys() if result['data'] else 'empty'}",
+                                error_code="INVALID_RESPONSE_FORMAT"
+                            )
+                    else:
+                        raise EmbeddingError(
+                            f"Unexpected response format from NIM API. Response keys: {list(result.keys())}",
+                            error_code="INVALID_RESPONSE_FORMAT"
+                        )
+                
+                elif response.status_code == 401:
+                    raise EmbeddingError(
+                        "Authentication failed - check your NVIDIA NIM API key",
+                        error_code="AUTHENTICATION_FAILED",
+                        status_code=401
+                    )
+                elif response.status_code == 403:
+                    raise EmbeddingError(
+                        "Access forbidden - your API key may not have embedding permissions",
+                        error_code="ACCESS_FORBIDDEN",
+                        status_code=403
+                    )
+                elif response.status_code == 429:
+                    if attempt < max_retries:
+                        wait_time = (attempt + 1) * 2  # Exponential backoff
+                        logger.warning(f"Rate limited, retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise EmbeddingError(
+                            "Rate limit exceeded and max retries reached",
+                            error_code="RATE_LIMITED",
+                            status_code=429
+                        )
+                elif response.status_code >= 500:
+                    if attempt < max_retries:
+                        wait_time = (attempt + 1) * 2
+                        logger.warning(f"Server error {response.status_code}, retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise EmbeddingError(
+                            f"Server error: {response.status_code} - {response.text[:200]}",
+                            error_code="SERVER_ERROR",
+                            status_code=response.status_code
+                        )
                 else:
-                    print("Unexpected response format from NIM API")
-                    return None
-            else:
-                print(f"NIM API error: {response.status_code} - {response.text}")
-                return None
+                    error_text = response.text[:500]  # Limit error text
+                    raise EmbeddingError(
+                        f"NIM API error: {response.status_code} - {error_text}",
+                        error_code="API_ERROR",
+                        status_code=response.status_code
+                    )
 
-        except Exception as e:
-            print(f"Error generating embedding with NIM API: {e}")
-            return None
+            except requests.exceptions.Timeout:
+                if attempt < max_retries:
+                    logger.warning(f"Request timeout, retrying (attempt {attempt + 1})...")
+                    continue
+                else:
+                    raise EmbeddingError(
+                        "Request timed out after multiple attempts",
+                        error_code="TIMEOUT"
+                    )
+            except requests.exceptions.ConnectionError as e:
+                if attempt < max_retries:
+                    logger.warning(f"Connection error, retrying (attempt {attempt + 1}): {str(e)[:100]}")
+                    time.sleep(1)  # Brief pause before retry
+                    continue
+                else:
+                    raise EmbeddingError(
+                        f"Connection failed after multiple attempts: {str(e)[:100]}",
+                        error_code="CONNECTION_ERROR"
+                    )
+            except EmbeddingError:
+                # Re-raise our custom exceptions without retry
+                raise
+            except Exception as e:
+                logger.error(f"Unexpected error in embedding generation: {e}")
+                raise EmbeddingError(
+                    f"Unexpected error: {str(e)[:100]}",
+                    error_code="UNEXPECTED_ERROR"
+                )
+
+        # Should never reach here, but just in case
+        raise EmbeddingError(
+            "Max retries exceeded without successful response",
+            error_code="MAX_RETRIES_EXCEEDED"
+        )
 
     async def generate_embeddings_batch(self, texts: List[str]) -> List[Optional[List[float]]]:
         """
@@ -68,27 +187,6 @@ class NIMService:
             embeddings.append(embedding)
         return embeddings
 
-    def _parse_embedding_response(self, content: str) -> Optional[List[float]]:
-        """
-        Parse embedding from NIM API response
-        This is a placeholder - actual implementation depends on response format
-        """
-        try:
-            # This is a simplified parser - adjust based on actual NIM API response
-            if content.startswith('[') and content.endswith(']'):
-                # Assume it's a JSON array of floats
-                return json.loads(content)
-            else:
-                # Try to extract numbers from the response
-                import re
-                numbers = re.findall(r'-?\d+\.?\d*', content)
-                if numbers:
-                    return [float(num) for num in numbers]
-                return None
-        except Exception as e:
-            print(f"Error parsing embedding response: {e}")
-            return None
-
     async def test_connection(self) -> bool:
         """
         Test connection to NIM API
@@ -96,7 +194,7 @@ class NIMService:
         try:
             test_text = "Hello, world!"
             embedding = await self.generate_embedding(test_text)
-            return embedding is not None
+            return embedding is not None and len(embedding) > 0
         except Exception as e:
             print(f"NIM API connection test failed: {e}")
             return False
@@ -170,36 +268,45 @@ class NIMService:
                 "stream": True
             }
             
-            with requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-                stream=True,
-                timeout=60
-            ) as response:
-                if response.status_code == 200:
-                    for line in response.iter_lines():
-                        if line:
-                            line_str = line.decode('utf-8')
-                            if line_str.startswith('data: '):
-                                data_str = line_str[6:]
-                                if data_str.strip() == '[DONE]':
-                                    break
-                                try:
-                                    data = json.loads(data_str)
-                                    if data.get('choices') and len(data['choices']) > 0:
-                                        delta = data['choices'][0].get('delta', {})
-                                        content = delta.get('content')
-                                        if content:
-                                            yield content
-                                except json.JSONDecodeError:
-                                    continue
-                else:
-                    yield f"Error: HTTP {response.status_code}"
+            try:
+                with requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                    stream=True,
+                    timeout=(10, 60)  # (connect timeout, read timeout)
+                ) as response:
+                    if response.status_code == 200:
+                        for line in response.iter_lines():
+                            if line:
+                                line_str = line.decode('utf-8')
+                                if line_str.startswith('data: '):
+                                    data_str = line_str[6:]
+                                    if data_str.strip() == '[DONE]':
+                                        break
+                                    try:
+                                        data = json.loads(data_str)
+                                        if data.get('choices') and len(data['choices']) > 0:
+                                            delta = data['choices'][0].get('delta', {})
+                                            content = delta.get('content')
+                                            if content:
+                                                yield content
+                                    except json.JSONDecodeError:
+                                        continue
+                    else:
+                        error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                        print(f"NIM API streaming error: {error_msg}")
+                        yield f"Error: API request failed ({response.status_code})\n"
+            except requests.exceptions.Timeout:
+                print("NIM API timeout during streaming")
+                yield "Error: Request timed out. Please try again.\n"
+            except requests.exceptions.ConnectionError:
+                print("NIM API connection error during streaming")
+                yield "Error: Connection failed. Please check your internet connection.\n"
                     
         except Exception as e:
             print(f"Error generating streaming answer with NIM API: {e}")
-            yield f"Error: {str(e)}"
+            yield f"Error: {str(e)}\n"
 
     async def generate_general_answer(self, question: str) -> Optional[str]:
         """
@@ -268,33 +375,42 @@ class NIMService:
                 "stream": True
             }
             
-            with requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-                stream=True,
-                timeout=60
-            ) as response:
-                if response.status_code == 200:
-                    for line in response.iter_lines():
-                        if line:
-                            line_str = line.decode('utf-8')
-                            if line_str.startswith('data: '):
-                                data_str = line_str[6:]
-                                if data_str.strip() == '[DONE]':
-                                    break
-                                try:
-                                    data = json.loads(data_str)
-                                    if data.get('choices') and len(data['choices']) > 0:
-                                        delta = data['choices'][0].get('delta', {})
-                                        content = delta.get('content')
-                                        if content:
-                                            yield content
-                                except json.JSONDecodeError:
-                                    continue
-                else:
-                    yield f"Error: HTTP {response.status_code}"
+            try:
+                with requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                    stream=True,
+                    timeout=(10, 60)  # (connect timeout, read timeout)
+                ) as response:
+                    if response.status_code == 200:
+                        for line in response.iter_lines():
+                            if line:
+                                line_str = line.decode('utf-8')
+                                if line_str.startswith('data: '):
+                                    data_str = line_str[6:]
+                                    if data_str.strip() == '[DONE]':
+                                        break
+                                    try:
+                                        data = json.loads(data_str)
+                                        if data.get('choices') and len(data['choices']) > 0:
+                                            delta = data['choices'][0].get('delta', {})
+                                            content = delta.get('content')
+                                            if content:
+                                                yield content
+                                    except json.JSONDecodeError:
+                                        continue
+                    else:
+                        error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                        print(f"NIM API streaming error: {error_msg}")
+                        yield f"Error: API request failed ({response.status_code})\n"
+            except requests.exceptions.Timeout:
+                print("NIM API timeout during streaming")
+                yield "Error: Request timed out. Please try again.\n"
+            except requests.exceptions.ConnectionError:
+                print("NIM API connection error during streaming")
+                yield "Error: Connection failed. Please check your internet connection.\n"
                     
         except Exception as e:
             print(f"Error generating streaming general answer with NIM API: {e}")
-            yield f"Error: {str(e)}"
+            yield f"Error: {str(e)}\n"

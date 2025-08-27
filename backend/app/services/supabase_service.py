@@ -72,9 +72,9 @@ class SupabaseService:
             print(f"Could not ensure tables exist: {e}")
             print("Please manually run the SQL schema from backend/supabase_schema.sql in your Supabase dashboard")
 
-    async def update_file_status(self, file_id: str, status: str, chunks_count: int = None) -> bool:
+    async def update_file_status(self, file_id: str, status: str, chunks_count: int = None, file_size: int = None) -> bool:
         """
-        Update file processing status
+        Update file processing status and optionally file size
         """
         try:
             update_data = {
@@ -84,6 +84,9 @@ class SupabaseService:
             
             if chunks_count is not None:
                 update_data['chunks_count'] = chunks_count
+                
+            if file_size is not None:
+                update_data['file_size'] = file_size
 
             result = self.client.table('files').update(update_data).eq('id', file_id).execute()
             return len(result.data) > 0
@@ -91,6 +94,46 @@ class SupabaseService:
         except Exception as e:
             print(f"Error updating file status: {e}")
             return False
+
+    async def update_file_size(self, file_id: str, file_size: int) -> bool:
+        """
+        Update file size for an existing file record
+        """
+        try:
+            update_data = {'file_size': file_size}
+            result = self.client.table('files').update(update_data).eq('id', file_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error updating file size: {e}")
+            return False
+
+    async def fix_file_sizes_from_s3(self, s3_service) -> int:
+        """
+        Fix file sizes for files that have size 0 by fetching actual size from S3
+        """
+        try:
+            # Get all files with size 0
+            result = self.client.table('files').select('*').eq('file_size', 0).execute()
+            files_to_fix = result.data or []
+            
+            fixed_count = 0
+            for file_record in files_to_fix:
+                file_key = file_record.get('file_key')
+                file_id = file_record.get('id')
+                
+                if file_key and file_id:
+                    # Get actual size from S3
+                    actual_size = await s3_service.get_file_size(file_key)
+                    if actual_size and actual_size > 0:
+                        success = await self.update_file_size(file_id, actual_size)
+                        if success:
+                            fixed_count += 1
+                            print(f"Fixed file size for {file_key}: {actual_size} bytes")
+            
+            return fixed_count
+        except Exception as e:
+            print(f"Error fixing file sizes: {e}")
+            return 0
 
     async def get_user_files(self, user_id: str) -> List[Dict]:
         """
@@ -118,6 +161,18 @@ class SupabaseService:
 
         except Exception as e:
             print(f"Error getting file by ID: {e}")
+            return None
+
+    async def get_file_by_key_and_user(self, file_key: str, user_id: str) -> Optional[Dict]:
+        """
+        Get file by file_key and user_id
+        """
+        try:
+            result = self.client.table('files').select('*').eq('file_key', file_key).eq('user_id', user_id).execute()
+            return result.data[0] if result.data else None
+
+        except Exception as e:
+            print(f"Error getting file by key and user: {e}")
             return None
 
     async def delete_file(self, file_id: str, user_id: str) -> bool:

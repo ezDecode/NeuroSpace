@@ -32,12 +32,13 @@ const s3Client = new S3Client({
   },
 });
 
-const ALLOWED_EXTENSIONS = ['pdf', 'txt', 'doc', 'docx'];
+const ALLOWED_EXTENSIONS = ['pdf', 'txt', 'doc', 'docx', 'md'];
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'text/plain',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/markdown',
 ];
 
 const isProd = process.env.NODE_ENV === 'production';

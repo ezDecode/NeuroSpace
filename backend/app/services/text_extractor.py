@@ -56,7 +56,7 @@ class TextExtractor:
             return TextExtractor.extract_text_from_pdf(file_path)
         elif content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
             return TextExtractor.extract_text_from_docx(file_path)
-        elif content_type == 'text/plain':
+        elif content_type in ['text/plain', 'text/markdown']:
             return TextExtractor.extract_text_from_txt(file_path)
         else:
             print(f"Unsupported content type: {content_type}")

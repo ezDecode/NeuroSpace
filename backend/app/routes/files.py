@@ -115,3 +115,63 @@ async def delete_file(file_id: str, current_user: str = Depends(get_verified_use
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+@router.post("/cleanup-duplicates")
+async def cleanup_duplicate_files(current_user: str = Depends(get_verified_user)):
+    """
+    Clean up duplicate file records for the current user
+    """
+    try:
+        # Get all files for the user
+        files = await supabase_service.get_user_files(current_user)
+        
+        # Group files by file_key
+        file_groups = {}
+        for file in files:
+            file_key = file.get('file_key')
+            if file_key not in file_groups:
+                file_groups[file_key] = []
+            file_groups[file_key].append(file)
+        
+        # Find and remove duplicates
+        duplicates_removed = 0
+        for file_key, file_list in file_groups.items():
+            if len(file_list) > 1:
+                # Sort by created_at to keep the oldest record
+                file_list.sort(key=lambda x: x.get('created_at', ''))
+                
+                # Keep the first (oldest) record and delete the rest
+                for file_to_delete in file_list[1:]:
+                    success = await supabase_service.delete_file(file_to_delete['id'], current_user)
+                    if success:
+                        duplicates_removed += 1
+                        print(f"Removed duplicate file record: {file_to_delete['id']}")
+        
+        return {
+            "message": f"Cleanup completed. Removed {duplicates_removed} duplicate records.",
+            "duplicates_removed": duplicates_removed
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup duplicates: {str(e)}")
+
+@router.post("/fix-file-sizes")
+async def fix_file_sizes(current_user: str = Depends(get_verified_user)):
+    """
+    Fix file sizes for files that have incorrect size (development/admin only)
+    """
+    try:
+        from app.services.s3_service import S3Service
+        s3_service = S3Service()
+        
+        # Only allow in development environment
+        if os.getenv('DEBUG') != 'true':
+            raise HTTPException(status_code=403, detail="This endpoint is only available in development mode")
+        
+        fixed_count = await supabase_service.fix_file_sizes_from_s3(s3_service)
+        return {"message": f"Fixed file sizes for {fixed_count} files"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fix file sizes: {str(e)}")

@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
-    const { content, topK = 5 } = await request.json();
-    if (!content || typeof content !== 'string') {
-      return NextResponse.json({ error: 'Invalid content' }, { status: 400 });
+    const { content, topK = 5, selectedFiles = [] } = await request.json();
+    if (!content || typeof content !== 'string' || !content.trim()) {
+      return NextResponse.json({ error: 'Invalid or empty content' }, { status: 400 });
     }
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ 
         user_id: userId, 
         question: content, 
-        top_k: topK 
+        top_k: topK,
+        selected_files: selectedFiles
       }),
     });
 

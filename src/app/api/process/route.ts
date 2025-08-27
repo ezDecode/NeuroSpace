@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
-    const { fileKey, fileName } = await request.json();
+    const { fileKey, fileName, fileSize, fileType } = await request.json();
 
     if (!fileKey || !fileName) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -43,10 +43,16 @@ export async function POST(request: NextRequest) {
           file_key: fileKey,
           file_name: fileName,
           user_id: userId,
-          file_size: 0, // Will be determined by backend from S3
-          content_type: fileName.toLowerCase().endsWith('.pdf')
-            ? 'application/pdf'
-            : 'application/octet-stream',
+          file_size: fileSize || 0, // Use provided file size or default to 0 (will be determined by backend from S3)
+          content_type: fileType || (() => {
+            const lowerFileName = fileName.toLowerCase();
+            if (lowerFileName.endsWith('.pdf')) return 'application/pdf';
+            if (lowerFileName.endsWith('.md')) return 'text/markdown';
+            if (lowerFileName.endsWith('.txt')) return 'text/plain';
+            if (lowerFileName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            if (lowerFileName.endsWith('.doc')) return 'application/msword';
+            return 'application/octet-stream';
+          })(),
         }),
       });
 

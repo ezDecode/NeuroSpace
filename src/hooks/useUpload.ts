@@ -38,7 +38,12 @@ export function useUpload() {
       setStatus('processing');
       await apiClient.post<ProcessResponse>(
         '/api/process',
-        { fileKey: signData.fileKey, fileName: file.name },
+        { 
+          fileKey: signData.fileKey, 
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        },
         headers,
       );
 

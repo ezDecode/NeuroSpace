@@ -8,6 +8,13 @@ class FileUploadRequest(BaseModel):
     file_size: int
     content_type: str
 
+class FileProcessingRequest(BaseModel):
+    file_key: str
+    file_name: str
+    user_id: str
+    file_size: int
+    content_type: str
+
 class FileProcessingResponse(BaseModel):
     job_id: str
     status: str

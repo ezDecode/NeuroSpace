@@ -1,5 +1,5 @@
 import os
-import pinecone
+from pinecone import Pinecone, ServerlessSpec
 from typing import List, Optional, Dict, Any
 import uuid
 
@@ -9,8 +9,8 @@ class PineconeService:
         self.environment = os.getenv('PINECONE_ENVIRONMENT')
         self.index_name = os.getenv('PINECONE_INDEX_NAME', 'neurospace-embeddings')
         
-        # Initialize Pinecone
-        pinecone.init(api_key=self.api_key, environment=self.environment)
+        # Initialize Pinecone with new API
+        self.pc = Pinecone(api_key=self.api_key)
         
         # Get or create index
         self.index = self._get_or_create_index()
@@ -21,16 +21,21 @@ class PineconeService:
         """
         try:
             # Check if index exists
-            if self.index_name in pinecone.list_indexes():
-                return pinecone.Index(self.index_name)
+            existing_indexes = self.pc.list_indexes()
+            if self.index_name in [idx['name'] for idx in existing_indexes]:
+                return self.pc.Index(self.index_name)
             else:
-                # Create new index
-                pinecone.create_index(
+                # Create new index with ServerlessSpec
+                self.pc.create_index(
                     name=self.index_name,
                     dimension=1024,  # Adjust based on your embedding model
-                    metric='cosine'
+                    metric='cosine',
+                    spec=ServerlessSpec(
+                        cloud='aws',
+                        region=self.environment or 'us-east-1'
+                    )
                 )
-                return pinecone.Index(self.index_name)
+                return self.pc.Index(self.index_name)
         except Exception as e:
             print(f"Error initializing Pinecone index: {e}")
             return None

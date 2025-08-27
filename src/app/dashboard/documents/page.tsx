@@ -17,8 +17,10 @@ import {
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 import { PageLoading, ErrorState, EmptyState, StatusBadge, GridSkeleton } from '@/components/ui/LoadingStates';
+import { ConfirmModal } from '@/components/ui/Modal';
 
 interface File {
   id: string;
@@ -38,6 +40,14 @@ export default function DocumentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Cleanup state
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   useEffect(() => {
     fetchFiles();
@@ -80,13 +90,17 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDeleteFile = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteFile = async (fileId: string, fileName: string) => {
+    setFileToDelete({ id: fileId, name: fileName });
+    setShowDeleteModal(true);
+  };
 
+  const confirmDeleteFile = async () => {
+    if (!fileToDelete) return;
+
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/files/${fileId}`, {
+      const response = await fetch(`/api/files/${fileToDelete.id}`, {
         method: 'DELETE',
       });
       
@@ -94,9 +108,55 @@ export default function DocumentsPage() {
         throw new Error('Failed to delete file');
       }
       
-      setFiles(prev => prev.filter(file => file.id !== fileId));
+      setFiles(prev => prev.filter(file => file.id !== fileToDelete.id));
+      setShowDeleteModal(false);
+      setFileToDelete(null);
+      toast.success(`"${fileToDelete.name}" has been deleted successfully`);
     } catch (err) {
       console.error('Error deleting file:', err);
+      toast.error(`Failed to delete "${fileToDelete.name}". Please try again.`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setFileToDelete(null);
+    setIsDeleting(false);
+  };
+
+  const handleCleanupDuplicates = async () => {
+    setIsCleaningUp(true);
+    try {
+      const response = await fetch('/api/files/cleanup-duplicates', {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to cleanup duplicate files';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          console.error('Failed to parse cleanup error response:', jsonError);
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      if (data.duplicates_removed > 0) {
+        toast.success(`Successfully removed ${data.duplicates_removed} duplicate file records`);
+        // Refresh the files list
+        await fetchFiles();
+      } else {
+        toast.success('No duplicate files found to clean up');
+      }
+    } catch (err) {
+      console.error('Error cleaning up duplicates:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to cleanup duplicate files');
+    } finally {
+      setIsCleaningUp(false);
     }
   };
 
@@ -148,6 +208,7 @@ export default function DocumentsPage() {
     if (contentType.includes('pdf')) return '📄';
     if (contentType.includes('word') || contentType.includes('document')) return '📝';
     if (contentType.includes('text')) return '📄';
+    if (contentType.includes('markdown')) return '📝';
     if (contentType.includes('image')) return '🖼️';
     return '📄';
   };
@@ -192,10 +253,20 @@ export default function DocumentsPage() {
           <h1 className={designTokens.typography.h1}>Documents</h1>
           <p className="text-white/60">Manage your uploaded files and knowledge base</p>
         </div>
-        <Link href="/dashboard/upload" className={getButtonClass('primary')}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          <span>Upload Files</span>
-        </Link>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleCleanupDuplicates}
+            disabled={isCleaningUp}
+            className={getButtonClass('secondary')}
+          >
+            <SparklesIcon className="h-4 w-4 mr-2" />
+            <span>{isCleaningUp ? 'Cleaning...' : 'Clean Duplicates'}</span>
+          </button>
+          <Link href="/dashboard/upload" className={getButtonClass('primary')}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            <span>Upload Files</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -350,7 +421,7 @@ export default function DocumentsPage() {
                             <ArrowDownTrayIcon className="h-4 w-4" />
                           </button>
                           <button 
-                            onClick={() => handleDeleteFile(file.id)}
+                            onClick={() => handleDeleteFile(file.id, file.file_name)}
                             className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                           >
                             <TrashIcon className="h-4 w-4" />
@@ -404,7 +475,7 @@ export default function DocumentsPage() {
                       </button>
                     </div>
                     <button 
-                      onClick={() => handleDeleteFile(file.id)}
+                      onClick={() => handleDeleteFile(file.id, file.file_name)}
                       className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                     >
                       <TrashIcon className="h-4 w-4" />
@@ -416,6 +487,19 @@ export default function DocumentsPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={cancelDelete}
+        onConfirm={confirmDeleteFile}
+        title="Delete Document"
+        message={`Are you sure you want to delete "${fileToDelete?.name}"? This action cannot be undone and will permanently remove the document from your knowledge base.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

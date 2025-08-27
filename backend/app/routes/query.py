@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from app.services.nim_service import NIMService
+from app.services.nim_service import NIMService, EmbeddingError
 from app.services.pinecone_service import PineconeService
 from app.deps import require_backend_key, get_verified_user
 import time
@@ -16,6 +16,7 @@ class QueryRequest(BaseModel):
 	user_id: str
 	question: str
 	top_k: int = 5
+	selected_files: List[str] = []  # List of file_names to filter by
 
 class QueryResponse(BaseModel):
 	answer: str
@@ -35,20 +36,45 @@ async def ask_question(payload: QueryRequest, current_user: str = Depends(get_ve
 	if payload.user_id != current_user:
 		raise HTTPException(status_code=403, detail="Not authorized for this user")
 	
+	# Validate question input
+	if not payload.question or not payload.question.strip():
+		raise HTTPException(status_code=400, detail="Question cannot be empty")
+	
 	# Initialize services lazily
 	nim_service = get_nim_service()
 	pinecone_service = get_pinecone_service()
 	
 	# 1) Embed query
-	embedding = await nim_service.generate_embedding(payload.question)
-	if not embedding:
-		logger.error("QnA: embedding failed")
-		raise HTTPException(status_code=500, detail="Failed to embed query")
-	logger.info("QnA: embedding generated in %.2f ms", (time.time()-start)*1000)
+	try:
+		embedding = await nim_service.generate_embedding(payload.question.strip())
+		if not embedding:
+			logger.error("QnA: embedding returned None")
+			raise HTTPException(status_code=500, detail="Failed to embed query - no embedding returned")
+		logger.info("QnA: embedding generated in %.2f ms", (time.time()-start)*1000)
+	except EmbeddingError as e:
+		logger.error(f"QnA: embedding failed with specific error: {e.message} (code: {e.error_code})")
+		if e.error_code == "MISSING_API_KEY":
+			raise HTTPException(status_code=500, detail="Configuration error: NVIDIA API key not configured")
+		elif e.error_code == "AUTHENTICATION_FAILED":
+			raise HTTPException(status_code=500, detail="Authentication error: Invalid NVIDIA API key")
+		elif e.error_code == "RATE_LIMITED":
+			raise HTTPException(status_code=429, detail="Rate limited by NVIDIA API. Please try again later.")
+		elif e.error_code == "TIMEOUT":
+			raise HTTPException(status_code=408, detail="Embedding request timed out. Please try again.")
+		else:
+			raise HTTPException(status_code=500, detail=f"Failed to embed query: {e.message}")
+	except Exception as e:
+		logger.error(f"QnA: unexpected embedding error: {e}")
+		raise HTTPException(status_code=500, detail="Failed to embed query due to unexpected error")
 
 	# 2) Pinecone search scoped to user_id
 	pc_start = time.time()
 	filter_dict = { "user_id": { "$eq": payload.user_id } }
+	
+	# Add file filtering if selected_files is provided
+	if payload.selected_files:
+		filter_dict["file_name"] = { "$in": payload.selected_files }
+	
 	matches = await pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
 	logger.info("QnA: pinecone returned %d matches in %.2f ms", len(matches), (time.time()-pc_start)*1000)
 
@@ -86,11 +112,15 @@ async def ask_question_direct(payload: QueryRequest, current_user: str = Depends
 	if payload.user_id != current_user:
 		raise HTTPException(status_code=403, detail="Not authorized for this user")
 
+	# Validate question input
+	if not payload.question or not payload.question.strip():
+		raise HTTPException(status_code=400, detail="Question cannot be empty")
+
 	# Initialize service lazily
 	nim_service = get_nim_service()
 
 	ans_start = time.time()
-	answer = await nim_service.generate_general_answer(payload.question)
+	answer = await nim_service.generate_general_answer(payload.question.strip())
 	if not answer:
 		logger.error("Direct QnA: answer generation failed")
 		raise HTTPException(status_code=500, detail="Failed to generate answer")
@@ -106,18 +136,27 @@ async def ask_question_stream(payload: QueryRequest, current_user: str = Depends
 	if payload.user_id != current_user:
 		raise HTTPException(status_code=403, detail="Not authorized for this user")
 
+	# Validate question input
+	if not payload.question or not payload.question.strip():
+		raise HTTPException(status_code=400, detail="Question cannot be empty")
+
 	# Initialize services lazily
 	nim_service = get_nim_service()
 	pinecone_service = get_pinecone_service()
 
 	# 1) Embed query
-	embedding = await nim_service.generate_embedding(payload.question)
+	embedding = await nim_service.generate_embedding(payload.question.strip())
 	if not embedding:
 		logger.error("QnA Stream: embedding failed")
 		raise HTTPException(status_code=500, detail="Failed to embed query")
 
 	# 2) Pinecone search scoped to user_id
 	filter_dict = { "user_id": { "$eq": payload.user_id } }
+	
+	# Add file filtering if selected_files is provided
+	if payload.selected_files:
+		filter_dict["file_name"] = { "$in": payload.selected_files }
+	
 	matches = await pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
 
 	# 3) Assemble context from matches and build references
@@ -145,11 +184,21 @@ async def ask_question_stream(payload: QueryRequest, current_user: str = Depends
 			yield header
 			# Then emit tokens
 			async for token in nim_service.generate_answer_stream(payload.question, context):
-				yield token
+				if token:  # Only yield non-empty tokens
+					yield token
 		except Exception as e:
-			yield f"Error: {str(e)}"
+			logger.error(f"Error in token generator: {e}")
+			yield f"Error: Failed to generate response. Please try again.\n"
 
-	return StreamingResponse(token_generator(), media_type="text/plain")
+	return StreamingResponse(
+		token_generator(), 
+		media_type="text/plain",
+		headers={
+			"Cache-Control": "no-cache",
+			"Connection": "keep-alive",
+			"X-Accel-Buffering": "no"  # Disable proxy buffering
+		}
+	)
 
 @router.post("/ask_direct_stream")
 async def ask_question_direct_stream(payload: QueryRequest, current_user: str = Depends(get_verified_user)):
@@ -157,6 +206,10 @@ async def ask_question_direct_stream(payload: QueryRequest, current_user: str = 
 	logger.info("Direct QnA Stream: received question for user %s", payload.user_id)
 	if payload.user_id != current_user:
 		raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+	# Validate question input
+	if not payload.question or not payload.question.strip():
+		raise HTTPException(status_code=400, detail="Question cannot be empty")
 
 	# Initialize service lazily
 	nim_service = get_nim_service()
@@ -167,9 +220,19 @@ async def ask_question_direct_stream(payload: QueryRequest, current_user: str = 
 			import json
 			yield json.dumps({"mode": "general"}) + "\n"
 			# Then emit tokens
-			async for token in nim_service.generate_general_answer_stream(payload.question):
-				yield token
+			async for token in nim_service.generate_general_answer_stream(payload.question.strip()):
+				if token:  # Only yield non-empty tokens
+					yield token
 		except Exception as e:
-			yield f"Error: {str(e)}"
+			logger.error(f"Error in direct token generator: {e}")
+			yield f"Error: Failed to generate response. Please try again.\n"
 
-	return StreamingResponse(token_generator(), media_type="text/plain")
+	return StreamingResponse(
+		token_generator(), 
+		media_type="text/plain",
+		headers={
+			"Cache-Control": "no-cache",
+			"Connection": "keep-alive",
+			"X-Accel-Buffering": "no"  # Disable proxy buffering
+		}
+	)

@@ -1,8 +1,11 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import logging
+import signal
+import asyncio
 from app.config import settings
 
 # Load environment variables
@@ -14,6 +17,18 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Global shutdown event
+shutdown_event = asyncio.Event()
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    shutdown_event.set()
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Security: Validate required environment variables
 def validate_environment():
@@ -50,11 +65,18 @@ except ValueError as e:
     if os.getenv('DEBUG') != 'True':
         import sys; sys.exit(1)
 
-# Create FastAPI app
+# Create FastAPI app with lifespan events
+async def lifespan(app: FastAPI):
+    """Handle app startup and shutdown"""
+    logger.info("Application starting up...")
+    yield
+    logger.info("Application shutting down...")
+
 app = FastAPI(
     title="NeuroSpace API",
     description="AI-powered Personal Knowledge Base Backend",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Security headers middleware
