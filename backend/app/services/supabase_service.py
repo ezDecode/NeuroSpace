@@ -26,6 +26,8 @@ class SupabaseService:
                 'content_type': file_data.get('content_type', ''),
                 'status': file_data.get('status', 'uploaded'),
                 'chunks_count': file_data.get('chunks_count', 0),
+                'embedding_count': file_data.get('embedding_count', 0),
+                'last_error': file_data.get('last_error'),
                 'created_at': datetime.utcnow().isoformat(),
                 'processed_at': None
             }
@@ -56,6 +58,8 @@ class SupabaseService:
                 content_type TEXT DEFAULT '',
                 status TEXT DEFAULT 'uploaded',
                 chunks_count INTEGER DEFAULT 0,
+                embedding_count INTEGER DEFAULT 0,
+                last_error TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                 processed_at TIMESTAMP WITH TIME ZONE
             );
@@ -72,9 +76,9 @@ class SupabaseService:
             print(f"Could not ensure tables exist: {e}")
             print("Please manually run the SQL schema from backend/supabase_schema.sql in your Supabase dashboard")
 
-    async def update_file_status(self, file_id: str, status: str, chunks_count: int = None, file_size: int = None) -> bool:
+    async def update_file_status(self, file_id: str, status: str, chunks_count: int = None, file_size: int = None, embedding_count: int = None, last_error: Optional[str] = None) -> bool:
         """
-        Update file processing status and optionally file size
+        Update file processing status and optionally file size, embedding count, and last error
         """
         try:
             update_data = {
@@ -87,6 +91,15 @@ class SupabaseService:
                 
             if file_size is not None:
                 update_data['file_size'] = file_size
+
+            if embedding_count is not None:
+                update_data['embedding_count'] = embedding_count
+
+            # Keep or clear last_error based on status
+            if last_error is not None:
+                update_data['last_error'] = last_error
+            elif status in ('processed', 'completed'):
+                update_data['last_error'] = None
 
             result = self.client.table('files').update(update_data).eq('id', file_id).execute()
             return len(result.data) > 0

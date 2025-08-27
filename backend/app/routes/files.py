@@ -28,6 +28,8 @@ async def list_files(current_user: str = Depends(get_verified_user)):
                 "content_type": file_data.get('content_type', ''),
                 "status": file_data.get('status', 'uploaded'),
                 "chunks_count": file_data.get('chunks_count', 0),
+                "embedding_count": file_data.get('embedding_count', 0),
+                "last_error": file_data.get('last_error', None),
                 "created_at": file_data.get('created_at', ''),
                 "processed_at": file_data.get('processed_at', ''),
             })
