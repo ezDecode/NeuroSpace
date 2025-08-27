@@ -21,7 +21,9 @@ def get_nim_service():
     return NIMService()
 
 def get_pinecone_service():
-    return PineconeService()
+    nim_service = NIMService()
+    embedding_dimension = nim_service.get_embedding_dimension()
+    return PineconeService(embedding_dimension=embedding_dimension)
 
 def get_supabase_service():
     return SupabaseService()
@@ -136,7 +138,7 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
             
             # Store embeddings in Pinecone
             if valid_embeddings:
-                success = await pinecone_service.upsert_vectors(valid_embeddings)
+                success = pinecone_service.upsert_vectors(valid_embeddings)
                 if success:
                     print(f"Successfully stored {len(valid_embeddings)} embeddings in Pinecone")
                 else:
