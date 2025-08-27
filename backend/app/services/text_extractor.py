@@ -14,8 +14,29 @@ class TextExtractor:
                 pdf_reader = PyPDF2.PdfReader(file)
                 text = ""
                 for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-                return text.strip()
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                    except Exception:
+                        # Skip pages that fail extraction instead of failing the whole file
+                        continue
+                text = text.strip()
+
+                # If no selectable text found, optionally attempt OCR (behind env flag)
+                if not text:
+                    enable_ocr = (os.getenv('ENABLE_OCR', '').lower() in ('1', 'true', 'yes'))
+                    if enable_ocr:
+                        # TODO: Implement OCR path (e.g., using Tesseract or an OCR service)
+                        # For now, leave a stub and return None to signal no text extracted
+                        print("OCR not implemented yet. ENABLE_OCR is true but OCR path is a TODO.")
+                        return None
+                    else:
+                        # Explicitly indicate that no text was found and OCR is disabled
+                        print("No selectable text detected in PDF and OCR is disabled.")
+                        return None
+
+                return text
         except Exception as e:
             print(f"Error extracting text from PDF: {e}")
             return None
@@ -67,7 +88,12 @@ class TextExtractor:
         """
         Split text into overlapping chunks
         """
-        if not text:
+        if text is None:
+            return []
+
+        # Normalize text and ensure we only return [] for truly empty input
+        text = str(text).strip()
+        if text == "":
             return []
 
         chunks = []
