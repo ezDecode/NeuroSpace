@@ -42,14 +42,26 @@ class PineconeService:
             logger.info(f"Found {len(existing_indexes)} existing indexes")
             
             for idx in existing_indexes:
-                if idx['name'] == self.index_name:
+                # Support both object and dict responses from SDK
+                idx_name = None
+                try:
+                    idx_name = getattr(idx, 'name', None)
+                except Exception:
+                    idx_name = None
+                if not idx_name and isinstance(idx, dict):
+                    idx_name = idx.get('name') or idx.get('index', {}).get('name')
+                
+                if idx_name == self.index_name:
                     logger.info(f"Using existing index: {self.index_name}")
                     index = self.pc.Index(self.index_name)
                     
                     # Validate dimension compatibility
                     try:
                         stats = index.describe_index_stats()
-                        index_dimension = getattr(stats, 'dimension', None)
+                        # stats is a dict in v5
+                        index_dimension = None
+                        if isinstance(stats, dict):
+                            index_dimension = stats.get('dimension')
                         if index_dimension and index_dimension != self.embedding_dimension:
                             logger.warning(f"Index dimension mismatch: expected {self.embedding_dimension}, found {index_dimension}")
                             raise ValueError(f"Index dimension mismatch: expected {self.embedding_dimension}, found {index_dimension}")
@@ -59,7 +71,7 @@ class PineconeService:
                     return index
             
             # Create new index if it doesn't exist
-            logger.info(f"Creating new index: {self.index_name} with dimension {self.embedding_dimension}")
+            logger.info(f"Creating new index: {self.index_name} with dimension {self.embedding_dimension} in region {self.environment}")
             self.pc.create_index(
                 name=self.index_name,
                 dimension=self.embedding_dimension,
@@ -78,7 +90,10 @@ class PineconeService:
                 try:
                     index = self.pc.Index(self.index_name)
                     stats = index.describe_index_stats()
-                    logger.info(f"Index {self.index_name} is ready")
+                    if isinstance(stats, dict):
+                        logger.info(f"Index {self.index_name} is ready with keys: {list(stats.keys())}")
+                    else:
+                        logger.info(f"Index {self.index_name} is ready")
                     return index
                 except Exception:
                     time.sleep(2)
@@ -298,7 +313,7 @@ class PineconeService:
 
             stats = self.index.describe_index_stats()
             logger.debug(f"Index stats retrieved: {stats}")
-            return stats
+            return stats if isinstance(stats, dict) else None
 
         except Exception as e:
             logger.error(f"Error getting Pinecone stats: {e}")
@@ -318,7 +333,7 @@ class PineconeService:
             try:
                 # Use a dummy embedding for connection test
                 dummy_embedding = [0.0] * self.embedding_dimension
-                results = self.index.query(
+                _ = self.index.query(
                     vector=dummy_embedding,
                     top_k=1,
                     include_metadata=False
@@ -364,8 +379,8 @@ class PineconeService:
             stats = self.get_index_stats()
             if stats:
                 health_status["details"]["index_stats"] = {
-                    "total_vector_count": getattr(stats, 'total_vector_count', 0),
-                    "dimension": getattr(stats, 'dimension', None)
+                    "total_vector_count": stats.get('total_vector_count') or stats.get('vector_count') or 0,
+                    "dimension": stats.get('dimension')
                 }
             
             # Test connection
