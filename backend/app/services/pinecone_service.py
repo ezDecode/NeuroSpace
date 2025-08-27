@@ -147,7 +147,6 @@ class PineconeService:
     _query_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30, name="pinecone_query_breaker")
 
     @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
-    def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> bool:
     def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> Dict[str, Any]:
         """
         Upsert vectors to Pinecone index with configurable batch size and detailed result summary
@@ -212,8 +211,7 @@ class PineconeService:
             for i in range(0, len(upsert_data), batch_size):
                 batch = upsert_data[i:i + batch_size]
                 try:
-                    self._upsert_breaker.call(self.index.upsert, vectors=batch)
-                    response = self.index.upsert(vectors=batch)
+                    response = self._upsert_breaker.call(self.index.upsert, vectors=batch)
                     # Pinecone v5 returns dict-like with upserted_count possibly
                     upserted_count = None
                     try:

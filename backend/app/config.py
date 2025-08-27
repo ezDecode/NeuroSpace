@@ -1,6 +1,10 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pathlib import Path
+
+# Resolve backend .env path so it loads correctly regardless of current working directory
+ENV_PATH = (Path(__file__).resolve().parent.parent / ".env").resolve()
 
 class Settings(BaseSettings):
 	# AWS
@@ -38,7 +42,7 @@ class Settings(BaseSettings):
 	max_file_size_mb: int = Field(25, env="MAX_FILE_SIZE_MB")
 
 	model_config = {
-		"env_file": ".env",
+		"env_file": str(ENV_PATH),
 		"extra": "ignore"  # Allow extra environment variables
 	}
 

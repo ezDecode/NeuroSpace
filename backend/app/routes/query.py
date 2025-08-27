@@ -217,82 +217,101 @@ async def ask_question_stream(payload: QueryRequest, current_user: str = Depends
 	if not payload.question or not payload.question.strip():
 		raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-	# Initialize services lazily
-	nim_service = get_nim_service()
-	pinecone_service = get_pinecone_service()
-
-	# 1) Embed query
-	try:
-		embedding = await nim_service.generate_embedding(payload.question.strip())
-		if not embedding:
-			logger.error("QnA Stream: embedding returned None")
-			raise HTTPException(status_code=500, detail="Failed to embed query - no embedding returned")
-		if not isinstance(embedding, list) or len(embedding) == 0:
-			logger.error("QnA Stream: embedding is not a valid list")
-			raise HTTPException(status_code=500, detail="Failed to embed query - invalid embedding format")
-	except EmbeddingError as e:
-		logger.error(f"QnA Stream: embedding failed with specific error: {e.message} (code: {e.error_code})")
-		if e.error_code == "MISSING_API_KEY":
-			raise HTTPException(status_code=500, detail="Configuration error: NVIDIA API key not configured")
-		elif e.error_code == "AUTHENTICATION_FAILED":
-			raise HTTPException(status_code=500, detail="Authentication error: Invalid NVIDIA API key")
-		elif e.error_code == "RATE_LIMITED":
-			raise HTTPException(status_code=429, detail="Rate limited by NVIDIA API. Please try again later.")
-		elif e.error_code == "TIMEOUT":
-			raise HTTPException(status_code=408, detail="Embedding request timed out. Please try again.")
-		else:
-			raise HTTPException(status_code=500, detail=f"Failed to embed query: {e.message}")
-	except Exception as e:
-		logger.error(f"QnA Stream: unexpected embedding error: {e}")
-		raise HTTPException(status_code=500, detail="Failed to embed query due to unexpected error")
-
-	# 2) Pinecone search scoped to user_id
-	filter_dict = { "user_id": { "$eq": payload.user_id } }
-	
-	# Add file filtering if selected_files is provided
-	if payload.selected_files:
-		filter_dict["file_key"] = { "$in": payload.selected_files }
-	
-	matches = pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
-
-	# 3) Assemble context from matches and build references
-	context_parts: List[str] = []
-	references: List[Dict[str, Any]] = []
-	for m in matches:
-		md = m.get('metadata', {})
-		text = md.get('text', '')
-		file_name = md.get('file_name', 'document')
-		context_parts.append(f"[Source: {file_name}]\n{text}")
-		references.append({
-			"file_name": file_name,
-			"score": m.get('score'),
-			"chunk_index": md.get('chunk_index'),
-			"file_key": md.get('file_key')
-		})
-	context = "\n\n".join(context_parts)
-
-	# 4) Streaming answer from NIM
 	async def token_generator():
+		import json
+		header_sent = False
 		try:
-			# Emit header first with mode and references
-			import json
-			header = json.dumps({"mode": "document", "references": references}) + "\n"
-			yield header
-			# Then emit tokens
+			# Initialize services lazily INSIDE the stream to avoid pre-stream 500s
+			nim_service = get_nim_service()
+			pinecone_service = get_pinecone_service()
+
+			# 1) Embed query
+			try:
+				embedding = await nim_service.generate_embedding(payload.question.strip())
+				if not embedding or not isinstance(embedding, list):
+					raise EmbeddingError("Invalid embedding returned", error_code="INVALID_EMBEDDING")
+			except EmbeddingError as e:
+				logger.error(f"QnA Stream: embedding failed: {e.message} (code: {e.error_code})")
+				if not header_sent:
+					yield json.dumps({"mode": "document", "references": []}) + "\n"
+					header_sent = True
+				# Map known errors to friendly messages
+				if e.error_code in ["MISSING_API_KEY", "AUTHENTICATION_FAILED"]:
+					yield "Error: Embedding provider authentication/configuration failed.\n"
+				elif e.error_code in ["RATE_LIMITED"]:
+					yield "Error: Rate limited. Please wait and try again.\n"
+				elif e.error_code in ["TIMEOUT"]:
+					yield "Error: Embedding request timed out. Try a shorter question.\n"
+				else:
+					yield f"Error: Failed to embed query: {e.message}\n"
+				return
+			except Exception as e:
+				logger.error(f"QnA Stream: unexpected embedding error: {e}")
+				if not header_sent:
+					yield json.dumps({"mode": "document", "references": []}) + "\n"
+					header_sent = True
+				yield "Error: Failed to embed query due to unexpected error.\n"
+				return
+
+			# 2) Pinecone search scoped to user_id
+			filter_dict = { "user_id": { "$eq": payload.user_id } }
+			if payload.selected_files:
+				filter_dict["file_key"] = { "$in": payload.selected_files }
+
+			try:
+				matches = pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
+			except Exception as e:
+				logger.error(f"QnA Stream: pinecone search failed: {e}")
+				if not header_sent:
+					yield json.dumps({"mode": "document", "references": []}) + "\n"
+					header_sent = True
+				yield "Error: Vector search failed. Please try again later.\n"
+				return
+
+			# 3) Assemble context and references
+			context_parts: List[str] = []
+			references: List[Dict[str, Any]] = []
+			for m in matches or []:
+				md = m.get('metadata', {})
+				text = md.get('text', '')
+				file_name = md.get('file_name', 'document')
+				context_parts.append(f"[Source: {file_name}]\n{text}")
+				references.append({
+					"file_name": file_name,
+					"score": m.get('score'),
+					"chunk_index": md.get('chunk_index'),
+					"file_key": md.get('file_key')
+				})
+			context = "\n\n".join(context_parts)
+
+			# Emit header now that we have references
+			if not header_sent:
+				yield json.dumps({"mode": "document", "references": references}) + "\n"
+				header_sent = True
+
+			# 4) Stream answer tokens
+			token_count = 0
 			async for token in nim_service.generate_answer_stream(payload.question, context):
-				if token:  # Only yield non-empty tokens
+				if token:
+					token_count += 1
 					yield token
+			logger.info(f"QnA Stream: completed successfully with {token_count} tokens")
+
 		except Exception as e:
-			logger.error(f"Error in token generator: {e}")
-			yield f"Error: Failed to generate response. Please try again.\n"
+			logger.error(f"Error in token generator (outer): {e}")
+			if not header_sent:
+				# Ensure frontend gets a header to parse
+				yield json.dumps({"mode": "document", "references": []}) + "\n"
+				header_sent = True
+			yield "Error: Failed to generate response. Please try again.\n"
 
 	return StreamingResponse(
-		token_generator(), 
+		token_generator(),
 		media_type="text/plain",
 		headers={
 			"Cache-Control": "no-cache",
 			"Connection": "keep-alive",
-			"X-Accel-Buffering": "no"  # Disable proxy buffering
+			"X-Accel-Buffering": "no"
 		}
 	)
 
@@ -307,29 +326,31 @@ async def ask_question_direct_stream(payload: QueryRequest, current_user: str = 
 	if not payload.question or not payload.question.strip():
 		raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-	# Initialize service lazily
-	nim_service = get_nim_service()
-
 	async def token_generator():
+		import json
+		# Always emit header first so frontend can parse the stream contract
+		yield json.dumps({"mode": "general"}) + "\n"
 		try:
-			# Emit header first with mode only
-			import json
-			yield json.dumps({"mode": "general"}) + "\n"
+			# Initialize service lazily INSIDE the stream
+			nim_service = get_nim_service()
 			# Then emit tokens
+			token_count = 0
 			async for token in nim_service.generate_general_answer_stream(payload.question.strip()):
-				if token:  # Only yield non-empty tokens
+				if token:
+					token_count += 1
 					yield token
+			logger.info(f"Direct QnA Stream: completed successfully with {token_count} tokens")
 		except Exception as e:
 			logger.error(f"Error in direct token generator: {e}")
-			yield f"Error: Failed to generate response. Please try again.\n"
+			yield "Error: Failed to generate response. Please try again.\n"
 
 	return StreamingResponse(
-		token_generator(), 
+		token_generator(),
 		media_type="text/plain",
 		headers={
 			"Cache-Control": "no-cache",
 			"Connection": "keep-alive",
-			"X-Accel-Buffering": "no"  # Disable proxy buffering
+			"X-Accel-Buffering": "no"
 		}
 	)
 
