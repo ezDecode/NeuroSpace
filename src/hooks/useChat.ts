@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { apiClient } from '@/utils/apiClient';
 import { useAuth } from './useAuth';
 
 export interface ChatMessage {
@@ -8,12 +7,6 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   references?: { file_name: string; score?: number }[];
-}
-
-interface AskResponse {
-  answer: string;
-  references: { file_name: string; score?: number }[];
-  mode?: 'general' | 'document';
 }
 
 export function useChat() {
@@ -45,6 +38,18 @@ export function useChat() {
       localStorage.setItem(storageKey, JSON.stringify({ messages, mode, selectedFiles }));
     } catch {}
   }, [messages, mode, selectedFiles, storageKey]);
+
+  // Abort any in-flight request when the component using this hook unmounts
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        try {
+          abortRef.current.abort();
+        } catch {}
+        abortRef.current = null;
+      }
+    };
+  }, []);
 
   async function sendMessage(content: string) {
     // Cancel any in-flight request
@@ -82,7 +87,7 @@ export function useChat() {
 
       reader = resp.body.getReader();
       const decoder = new TextDecoder();
-      let assistantId = crypto.randomUUID();
+      const assistantId = crypto.randomUUID();
       let created = false;
       let buffer = '';
       let references: { file_name: string; score?: number }[] | undefined;
@@ -159,7 +164,10 @@ export function useChat() {
 
   function stopGeneration() {
     if (abortRef.current) {
-      abortRef.current.abort();
+      try {
+        abortRef.current.abort();
+      } catch {}
+      abortRef.current = null;
     }
     setLoading(false);
   }

@@ -50,6 +50,13 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       const data = await response.json();
       const processedFiles = (data.files || []).filter((file: File) => file.status === 'processed');
       setFiles(processedFiles);
+
+      // Prune any selected files that are no longer available
+      const availableNames = new Set(processedFiles.map((f) => f.file_name));
+      const pruned = selectedFiles.filter((name) => availableNames.has(name));
+      if (pruned.length !== selectedFiles.length) {
+        onFilesChange(pruned);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch files');
     } finally {
