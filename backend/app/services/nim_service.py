@@ -3,7 +3,7 @@ import requests
 import requests.exceptions
 import json
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
