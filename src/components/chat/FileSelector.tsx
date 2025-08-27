@@ -13,6 +13,7 @@ import {
 
 interface File {
   id: string;
+  file_key: string;
   file_name: string;
   file_size: number;
   content_type: string;
@@ -33,6 +34,7 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [displayCount, setDisplayCount] = useState(50);
 
   useEffect(() => {
     fetchFiles();
@@ -52,8 +54,8 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       setFiles(processedFiles);
 
       // Prune any selected files that are no longer available
-      const availableNames = new Set(processedFiles.map((f) => f.file_name));
-      const pruned = selectedFiles.filter((name) => availableNames.has(name));
+      const availableKeys = new Set(processedFiles.map((f) => f.file_key));
+      const pruned = selectedFiles.filter((key) => availableKeys.has(key));
       if (pruned.length !== selectedFiles.length) {
         onFilesChange(pruned);
       }
@@ -64,11 +66,11 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
     }
   };
 
-  const handleFileToggle = (fileName: string) => {
-    if (selectedFiles.includes(fileName)) {
-      onFilesChange(selectedFiles.filter(f => f !== fileName));
+  const handleFileToggle = (fileKey: string) => {
+    if (selectedFiles.includes(fileKey)) {
+      onFilesChange(selectedFiles.filter(f => f !== fileKey));
     } else {
-      onFilesChange([...selectedFiles, fileName]);
+      onFilesChange([...selectedFiles, fileKey]);
     }
   };
 
@@ -77,7 +79,7 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
   };
 
   const selectAll = () => {
-    onFilesChange(files.map(f => f.file_name));
+    onFilesChange(files.map(f => f.file_key));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -117,9 +119,17 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
   if (files.length === 0) {
     return (
       <div className={`bg-gray-800 border border-gray-600 rounded-lg p-3 ${className}`}>
-        <div className="flex items-center space-x-2 text-gray-400">
-          <FolderOpenIcon className="h-4 w-4" />
-          <span className="text-sm">No processed documents available</span>
+        <div className="flex items-center justify-between text-gray-400">
+          <div className="flex items-center space-x-2">
+            <FolderOpenIcon className="h-4 w-4" />
+            <span className="text-sm">No processed documents available</span>
+          </div>
+          <button
+            onClick={() => (window.location.href = '/dashboard/upload')}
+            className="text-xs text-blue-400 hover:text-blue-300"
+          >
+            Upload
+          </button>
         </div>
       </div>
     );
@@ -154,23 +164,26 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       {!isOpen && selectedFiles.length > 0 && (
         <div className="px-3 pb-3 border-t border-gray-600">
           <div className="flex flex-wrap gap-1 mt-2">
-            {selectedFiles.slice(0, 3).map(fileName => (
+            {selectedFiles.slice(0, 3).map(fileKey => {
+              const file = files.find(f => f.file_key === fileKey);
+              const displayName = file?.file_name || fileKey;
+              return (
               <span 
-                key={fileName} 
+                key={fileKey} 
                 className="bg-blue-900/50 text-blue-200 text-xs px-2 py-1 rounded-full flex items-center space-x-1"
               >
-                <span className="truncate max-w-20">{fileName}</span>
+                <span className="truncate max-w-20">{displayName}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleFileToggle(fileName);
+                    handleFileToggle(fileKey);
                   }}
                   className="hover:bg-blue-800 rounded-full p-0.5"
                 >
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
-            ))}
+            );})}
             {selectedFiles.length > 3 && (
               <span className="text-xs text-gray-400 px-2 py-1">
                 +{selectedFiles.length - 3} more
@@ -196,6 +209,12 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
                 {files.length} documents available
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); fetchFiles(); }}
+                  className="text-xs text-gray-300 hover:text-gray-100 transition-colors"
+                >
+                  Refresh
+                </button>
                 {files.length > 0 && selectedFiles.length === 0 && (
                   <button
                     onClick={selectAll}
@@ -225,16 +244,16 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
 
             {/* File list */}
             <div className="max-h-48 overflow-y-auto">
-              {files.map(file => (
+              {files.slice(0, displayCount).map(file => (
                 <div
                   key={file.id}
                   className={`flex items-center space-x-3 p-3 hover:bg-gray-700 cursor-pointer transition-colors ${
-                    selectedFiles.includes(file.file_name) ? 'bg-gray-700' : ''
+                    selectedFiles.includes(file.file_key) ? 'bg-gray-700' : ''
                   }`}
-                  onClick={() => handleFileToggle(file.file_name)}
+                  onClick={() => handleFileToggle(file.file_key)}
                 >
                   <div className="flex-shrink-0">
-                    {selectedFiles.includes(file.file_name) ? (
+                    {selectedFiles.includes(file.file_key) ? (
                       <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center">
                         <CheckIcon className="h-3 w-3 text-white" />
                       </div>
@@ -255,6 +274,16 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
                   </div>
                 </div>
               ))}
+              {files.length > displayCount && (
+                <div className="p-3 flex justify-center">
+                  <button
+                    onClick={() => setDisplayCount((c) => c + 50)}
+                    className="text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

@@ -195,7 +195,8 @@ NVIDIA_NIM_BASE_URL=https://api.nvcf.nvidia.com
 
 # Pinecone
 PINECONE_API_KEY=your_pinecone_key
-PINECONE_ENVIRONMENT=your_environment
+# Serverless region only (e.g., us-east-1). Do NOT use legacy environments.
+PINECONE_ENVIRONMENT=us-east-1
 PINECONE_INDEX_NAME=neurospace-embeddings
 
 # Supabase
@@ -484,6 +485,10 @@ http://localhost:8000/health
 3. **File Upload**: Verify S3 bucket permissions
 4. **AI Processing**: Validate NIM API access
 5. **JWT Authentication**: Check Clerk configuration
+6. **Pinecone Region**: `PINECONE_ENVIRONMENT` must be a serverless region like `us-east-1` (not legacy values)
+7. **Pinecone Dimensions**: If you see a dimension mismatch, delete/recreate the index with the expected dimension (default 1024 from NIM). Logs show the expected dimension at startup.
+8. **Pinecone Readiness**: After creating a new index, first queries may fail briefly. The backend polls and performs a no-op query; wait up to ~60s.
+9. **Backend Key**: Ensure `BACKEND_API_KEY` matches between frontend and backend and is forwarded in requests.
 
 ### **Debug Mode**
 

@@ -116,7 +116,10 @@ POST /ask
   "user_id": "user_123",
   "question": "What are the main findings in the research?",
   "top_k": 5,
-  "selected_files": ["research_paper.pdf", "methodology.docx"]  // Optional
+  "selected_files": [
+    "uploads/user_123/research_paper.pdf",
+    "uploads/user_123/methodology.docx"
+  ]  // Optional: use stable file_key identifiers
 }
 ```
 
@@ -136,7 +139,7 @@ filter_dict = { "user_id": { "$eq": payload.user_id } }
 
 # Add file filtering if specific files selected
 if payload.selected_files:
-    filter_dict["file_name"] = { "$in": payload.selected_files }
+    filter_dict["file_key"] = { "$in": payload.selected_files }
 
 # Search for similar chunks
 matches = pinecone_service.search_similar(
@@ -224,13 +227,16 @@ filter_dict = { "user_id": { "$eq": "user_123" } }
 # Only searches selected files
 filter_dict = { 
     "user_id": { "$eq": "user_123" },
-    "file_name": { "$in": ["document1.pdf", "document2.docx"] }
+    "file_key": { "$in": [
+        "uploads/user_123/document1.pdf",
+        "uploads/user_123/document2.docx"
+    ] }
 }
 ```
 
 ### Vector Search Process
 1. **Similarity Calculation**: Pinecone computes cosine similarity between query embedding and stored chunk embeddings
-2. **Filtering**: Only chunks matching user_id and optionally file_name filters are considered
+2. **Filtering**: Only chunks matching user_id and optionally file_key filters are considered
 3. **Ranking**: Results sorted by similarity score (0-1, higher = more similar)
 4. **Top-K Selection**: Returns the most relevant chunks up to the specified limit
 

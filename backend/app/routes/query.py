@@ -16,7 +16,7 @@ class QueryRequest(BaseModel):
 	user_id: str
 	question: str
 	top_k: int = 5
-	selected_files: List[str] = []  # List of file_names to filter by
+	selected_files: List[str] = []  # List of file_keys to filter by
 
 class QueryResponse(BaseModel):
 	answer: str
@@ -102,7 +102,7 @@ async def ask_question(payload: QueryRequest, current_user: str = Depends(get_ve
 	
 	# Add file filtering if selected_files is provided
 	if payload.selected_files:
-		filter_dict["file_name"] = { "$in": payload.selected_files }
+		filter_dict["file_key"] = { "$in": payload.selected_files }
 	
 	matches = pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
 	logger.info("QnA: pinecone returned %d matches in %.2f ms", len(matches), (time.time()-pc_start)*1000)
@@ -203,7 +203,7 @@ async def ask_question_stream(payload: QueryRequest, current_user: str = Depends
 	
 	# Add file filtering if selected_files is provided
 	if payload.selected_files:
-		filter_dict["file_name"] = { "$in": payload.selected_files }
+		filter_dict["file_key"] = { "$in": payload.selected_files }
 	
 	matches = pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
 

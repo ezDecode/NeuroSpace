@@ -69,6 +69,23 @@ except ValueError as e:
 async def lifespan(app: FastAPI):
     """Handle app startup and shutdown"""
     logger.info("Application starting up...")
+    try:
+        # Log Pinecone key settings for quick triage (without secrets)
+        from app.config import settings
+        logger.info(
+            "Pinecone config: region=%s index=%s",
+            settings.pinecone_environment,
+            settings.pinecone_index_name,
+        )
+        # Log expected embedding dimension
+        try:
+            from app.services.nim_service import NIMService
+            dim = NIMService().get_embedding_dimension()
+            logger.info("Embedding dimension: %d", dim)
+        except Exception as e:
+            logger.warning("Unable to determine embedding dimension at startup: %s", e)
+    except Exception as e:
+        logger.warning("Startup logging error: %s", e)
     yield
     logger.info("Application shutting down...")
 
