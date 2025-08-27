@@ -228,6 +228,45 @@ class SupabaseService:
             print(f"Error updating job status: {e}")
             return False
 
+    async def get_job(self, job_id: str) -> Optional[Dict]:
+        """
+        Fetch a processing job by id
+        """
+        try:
+            result = self.client.table('processing_jobs').select('*').eq('id', job_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error fetching job: {e}")
+            return None
+
+    async def get_or_create_job(self, file_id: str, user_id: str, status: str = 'queued') -> Optional[str]:
+        """
+        Idempotently get existing job for file_id/user_id or create one
+        """
+        try:
+            existing = self.client.table('processing_jobs').select('*').eq('file_id', file_id).eq('user_id', user_id).order('created_at', desc=True).limit(1).execute()
+            if existing.data:
+                return existing.data[0]['id']
+            return await self.create_processing_job({
+                'file_id': file_id,
+                'user_id': user_id,
+                'status': status
+            })
+        except Exception as e:
+            print(f"Error getting or creating job: {e}")
+            return None
+
+    async def get_latest_job_by_file(self, file_id: str, user_id: str) -> Optional[Dict]:
+        """
+        Return the latest job record for a given file and user
+        """
+        try:
+            result = self.client.table('processing_jobs').select('*').eq('file_id', file_id).eq('user_id', user_id).order('created_at', desc=True).limit(1).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error fetching latest job by file: {e}")
+            return None
+
     async def test_connection(self) -> bool:
         """
         Test connection to Supabase

@@ -50,7 +50,7 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       }
       
       const data = await response.json();
-      const processedFiles = (data.files || []).filter((file: File) => file.status === 'processed');
+      const processedFiles: File[] = (data.files || []).filter((file: File) => file.status === 'processed');
       setFiles(processedFiles);
 
       // Prune any selected files that are no longer available

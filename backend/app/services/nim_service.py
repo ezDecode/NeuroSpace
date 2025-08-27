@@ -5,6 +5,8 @@ import json
 import time
 from typing import List, Optional, Tuple, Dict, Any
 import logging
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+import pybreaker
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,14 @@ class NIMService:
         self.client = None  # Will use direct requests
         logger.info("NIM Service initialized with direct HTTP client")
 
+    # Circuit breaker for NIM API
+    _breaker = pybreaker.CircuitBreaker(
+        fail_max=5,
+        reset_timeout=30,
+        name="nim_embeddings_breaker"
+    )
+
+    @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3), retry=retry_if_exception_type((requests.exceptions.Timeout, requests.exceptions.ConnectionError)))
     async def generate_embedding(self, text: str, max_retries: int = 2) -> Optional[List[float]]:
         """
         Generate embedding for a text using Nvidia NIM API with detailed error handling
@@ -72,7 +82,7 @@ class NIMService:
 
                 logger.debug(f"Attempting embedding generation (attempt {attempt + 1}/{max_retries + 1})")
                 
-                response = requests.post(
+                response = self._breaker.call(requests.post,
                     url, 
                     headers=self.headers, 
                     json=payload,

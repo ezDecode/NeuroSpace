@@ -5,6 +5,7 @@ from app.services.text_extractor import TextExtractor
 from app.services.nim_service import NIMService
 from app.services.pinecone_service import PineconeService
 from app.services.supabase_service import SupabaseService
+from app.tasks.processing_tasks import process_file_task
 import uuid
 import os
 import re
@@ -59,150 +60,61 @@ def validate_file_size(file_path: str, max_size_mb: int = settings.max_file_size
 @router.post("/process", response_model=FileProcessingResponse)
 async def process_file(request: FileProcessingRequest, current_user: str = Depends(get_verified_user)):
     """
-    Process uploaded file: download from S3, extract text, chunk it
+    Enqueue background processing job for uploaded file.
     """
-    try:
-        # Verify the user in payload matches the authenticated user
-        if request.user_id != current_user:
-            raise HTTPException(status_code=403, detail="Not authorized to process this user's file")
-        
-        # Security: Validate file key
-        if not validate_file_key(request.file_key, request.user_id):
-            raise HTTPException(status_code=400, detail="Invalid file key")
-        
-        # Initialize services lazily
-        s3_service = get_s3_service()
-        nim_service = get_nim_service()
-        pinecone_service = get_pinecone_service()
-        supabase_service = get_supabase_service()
-        
-        # Generate job ID and file ID
-        job_id = str(uuid.uuid4())
-        file_id = str(uuid.uuid4())
-        
-        # Get actual file size from S3 first
-        actual_file_size = await s3_service.get_file_size(request.file_key)
-        if actual_file_size is None:
-            raise HTTPException(status_code=500, detail="Failed to get file size from S3")
-        
-        # Update the request file_size with actual size from S3
-        request.file_size = actual_file_size
-        
-        # Download file from S3
-        local_file_path = await s3_service.download_file(request.file_key)
-        if not local_file_path:
-            raise HTTPException(status_code=500, detail="Failed to download file from S3")
+    # Verify the user in payload matches the authenticated user
+    if request.user_id != current_user:
+        raise HTTPException(status_code=403, detail="Not authorized to process this user's file")
 
-        try:
-            # Security: Validate file size after download
-            if not validate_file_size(local_file_path, max_size_mb=settings.max_file_size_mb):
-                raise HTTPException(status_code=413, detail=f"File too large. Maximum {settings.max_file_size_mb}MB allowed")
+    # Security: Validate file key
+    if not validate_file_key(request.file_key, request.user_id):
+        raise HTTPException(status_code=400, detail="Invalid file key")
 
-            # Extract text from file
-            text = TextExtractor.extract_text(local_file_path, request.content_type)
-            if not text:
-                raise HTTPException(status_code=400, detail="Failed to extract text from file")
+    # Create or find file record and job record
+    supabase_service = get_supabase_service()
 
-            # Security: Validate extracted text length
-            if len(text) > 10 * 1024 * 1024:  # 10MB text limit
-                raise HTTPException(status_code=400, detail="Extracted text too large")
+    # Ensure file record exists (frontend should have created it, but be idempotent)
+    existing_file = await supabase_service.get_file_by_key_and_user(request.file_key, request.user_id)
+    if not existing_file:
+        file_id = await supabase_service.create_file_record({
+            'file_key': request.file_key,
+            'file_name': request.file_name,
+            'user_id': request.user_id,
+            'file_size': request.file_size or 0,
+            'content_type': request.content_type,
+            'status': 'uploaded',
+        })
+        if not file_id:
+            raise HTTPException(status_code=500, detail="Failed to ensure file record")
+        existing_file = await supabase_service.get_file_by_id(file_id)
 
-            # Chunk the text
-            chunks = TextExtractor.chunk_text(text)
-            
-            # Security: Limit number of chunks to prevent resource exhaustion
-            if len(chunks) > 1000:
-                raise HTTPException(status_code=400, detail="Too many text chunks generated")
-            
-            # Generate embeddings using Nvidia NIM API
-            print(f"Generating embeddings for {len(chunks)} chunks...")
-            embeddings = await nim_service.generate_embeddings_batch(chunks)
-            
-            # Filter out None embeddings and prepare for Pinecone
-            valid_embeddings = []
-            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                if embedding:
-                    # Security: Limit chunk text length in metadata
-                    chunk_preview = chunk[:500] if len(chunk) > 500 else chunk
-                    valid_embeddings.append({
-                        'id': f"{request.file_key}_chunk_{i}",
-                        'embedding': embedding,
-                        'metadata': {
-                            'file_key': request.file_key,
-                            'file_name': request.file_name,
-                            'user_id': request.user_id,
-                            'chunk_index': i,
-                            'text': chunk_preview,
-                            'content_type': request.content_type
-                        }
-                    })
-            
-            # Store embeddings in Pinecone
-            if valid_embeddings:
-                success = pinecone_service.upsert_vectors(valid_embeddings)
-                if success:
-                    print(f"Successfully stored {len(valid_embeddings)} embeddings in Pinecone")
-                else:
-                    print("Failed to store embeddings in Pinecone")
-                    # Don't fail the entire process if Pinecone fails
-            
-            # Update existing file record in Supabase instead of creating new one
-            # First, find the existing file record by file_key and user_id
-            existing_file = await supabase_service.get_file_by_key_and_user(request.file_key, request.user_id)
-            
-            if existing_file:
-                # Update existing record with processing results
-                update_success = await supabase_service.update_file_status(
-                    existing_file['id'], 
-                    'processed', 
-                    len(valid_embeddings),
-                    actual_file_size  # Include the actual file size from S3
-                )
-                if update_success:
-                    print(f"File metadata updated in Supabase for file: {request.file_name}")
-                else:
-                    print(f"Failed to update file metadata in Supabase for file: {request.file_name}")
-            else:
-                # Fallback: create new record if not found (shouldn't happen in normal flow)
-                file_record = {
-                    'file_key': request.file_key,
-                    'file_name': request.file_name,
-                    'user_id': request.user_id,
-                    'file_size': request.file_size,
-                    'content_type': request.content_type,
-                    'status': 'processed',
-                    'chunks_count': len(valid_embeddings)
-                }
-                
-                db_file_id = await supabase_service.create_file_record(file_record)
-                if db_file_id:
-                    print(f"File metadata created in Supabase with ID: {db_file_id}")
-                else:
-                    print(f"Failed to create file metadata in Supabase for file: {request.file_name}")
-            
-            print(f"Processed file {request.file_name}: {len(chunks)} chunks created, {len(valid_embeddings)} embeddings stored")
-            
-            return FileProcessingResponse(
-                job_id=job_id,
-                status="completed",
-                message=f"Successfully processed {request.file_name} into {len(chunks)} chunks",
-                file_key=request.file_key
-            )
-            
-        finally:
-            # Clean up temporary file
-            s3_service.cleanup_temp_file(local_file_path)
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        # Security: Generic error message in production
-        debug_value = os.getenv('DEBUG', '').lower()
-        if debug_value in ('true', '1', 'yes'):
-            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-        else:
-            raise HTTPException(status_code=500, detail="Internal server error")
+    # Idempotency: one active job per file
+    job_id = await supabase_service.get_or_create_job(existing_file['id'], request.user_id, status='queued')
+    if not job_id:
+        raise HTTPException(status_code=500, detail="Failed to create job")
+
+    # Update job to queued and enqueue task
+    await supabase_service.update_job_status(job_id, 'queued')
+
+    task = process_file_task.apply_async(kwargs={
+        'payload': {
+            'file_key': request.file_key,
+            'file_name': request.file_name,
+            'user_id': request.user_id,
+            'content_type': request.content_type,
+            'job_id': job_id,
+        }
+    })
+
+    # Mark job as processing immediately after enqueuing
+    await supabase_service.update_job_status(job_id, 'processing')
+
+    return FileProcessingResponse(
+        job_id=job_id,
+        status="queued",
+        message=f"Processing started for {request.file_name}",
+        file_key=request.file_key
+    )
 
 @router.get("/status/{job_id}")
 async def get_processing_status(job_id: str, current_user: str = Depends(get_verified_user)):
@@ -213,9 +125,16 @@ async def get_processing_status(job_id: str, current_user: str = Depends(get_ver
     if not re.match(r'^[a-f0-9\-]+$', job_id):
         raise HTTPException(status_code=400, detail="Invalid job ID format")
     
-    # TODO: Implement job status tracking
+    supabase_service = get_supabase_service()
+    job = await supabase_service.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get('user_id') != current_user:
+        raise HTTPException(status_code=403, detail="Not authorized to view this job")
+
     return {
         "job_id": job_id,
-        "status": "completed",
-        "message": "Processing completed successfully"
+        "status": job.get('status', 'unknown'),
+        "created_at": job.get('created_at'),
+        "completed_at": job.get('completed_at'),
     }

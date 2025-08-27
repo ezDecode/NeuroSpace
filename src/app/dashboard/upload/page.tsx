@@ -27,6 +27,7 @@ interface FileWrapper {
   progress: number;
   error?: string;
   fileKey?: string;
+  jobId?: string;
 }
 
 const acceptedFileTypes = {
@@ -262,10 +263,21 @@ export default function UploadPage() {
         throw new Error('Server returned invalid JSON response');
       }
       
-      return result;
+      return result as { success: boolean; jobId: string; status: string; message: string };
     } catch (error) {
       console.error('processFile error:', error);
       throw error;
+    }
+  };
+
+  const pollJobStatus = async (jobId: string): Promise<'completed' | 'failed' | 'processing' | 'queued'> => {
+    try {
+      const resp = await fetch(`/api/processing/status?jobId=${encodeURIComponent(jobId)}`, { cache: 'no-store' });
+      if (!resp.ok) return 'processing';
+      const data = await resp.json();
+      return (data.status as any) || 'processing';
+    } catch {
+      return 'processing';
     }
   };
 
@@ -298,16 +310,35 @@ export default function UploadPage() {
           index === i ? { ...f, status: 'processing', progress: 75 } : f
         ));
         
-        // Process file
-        await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
+        // Enqueue processing
+        const enqueueResult = await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
+        const jobId = enqueueResult.jobId;
         
-        // Mark as success
-        setFiles(prev => prev.map((f, index) => 
-          index === i ? { ...f, status: 'success', progress: 100, fileKey } : f
-        ));
+        // Poll job status until completion or failure
+        let attempts = 0;
+        let status: 'completed' | 'failed' | 'processing' | 'queued' = enqueueResult.status as any;
+        while (attempts < 120 && (status === 'processing' || status === 'queued')) { // up to ~2 minutes
+          await new Promise(r => setTimeout(r, 1000));
+          status = await pollJobStatus(jobId);
+          attempts += 1;
+        }
         
-        successCount++;
-        toast.success(`${fileWrapper.name} uploaded and processed successfully!`);
+        if (status === 'completed') {
+          // Mark as success
+          setFiles(prev => prev.map((f, index) => 
+            index === i ? { ...f, status: 'success', progress: 100, fileKey, jobId } : f
+          ));
+          successCount++;
+          toast.success(`${fileWrapper.name} uploaded and processed successfully!`);
+        } else if (status === 'failed') {
+          throw new Error('Background processing failed');
+        } else {
+          // timed out waiting
+          setFiles(prev => prev.map((f, index) => 
+            index === i ? { ...f, status: 'processing', progress: 90, fileKey, jobId } : f
+          ));
+          toast('Processing is taking longer; we will finish in the background.', { icon: '⏳' });
+        }
         
       } catch (error) {
         console.error(`Error uploading ${fileWrapper.name}:`, error);
