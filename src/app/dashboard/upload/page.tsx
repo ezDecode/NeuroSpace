@@ -217,8 +217,8 @@ export default function UploadPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          file_key: fileKey,
-          file_name: fileName,
+          fileKey: fileKey,
+          fileName: fileName,
         }),
       });
 

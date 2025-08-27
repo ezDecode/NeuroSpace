@@ -1,5 +1,6 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 class Settings(BaseSettings):
 	# AWS
@@ -24,6 +25,9 @@ class Settings(BaseSettings):
 	# Clerk Authentication
 	clerk_jwks_url: str = Field(..., env="CLERK_JWKS_URL")
 	clerk_issuer: str = Field(..., env="CLERK_ISSUER")
+
+	# Backend API Key for internal service authentication
+	backend_api_key: Optional[str] = Field(None, env="BACKEND_API_KEY")
 
 	# App
 	app_env: str = Field("development", env="APP_ENV")

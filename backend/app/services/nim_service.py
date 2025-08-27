@@ -2,7 +2,7 @@ import os
 import requests
 import json
 from typing import List, Optional
-from openai import OpenAI
+import httpx
 
 class NIMService:
     def __init__(self):
@@ -12,11 +12,9 @@ class NIMService:
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         }
-        # Initialize OpenAI client with NVIDIA endpoint
-        self.client = OpenAI(
-            base_url=self.base_url,
-            api_key=self.api_key
-        )
+        # Use direct HTTP requests instead of OpenAI client to avoid proxy issues
+        self.client = None  # Will use direct requests
+        print("NIM Service initialized with direct HTTP client")
 
     async def generate_embedding(self, text: str) -> Optional[List[float]]:
         """
@@ -114,22 +112,33 @@ class NIMService:
                 "Cite relevant filenames if provided in the context metadata."
             )
             
-            completion = self.client.chat.completions.create(
-                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
-                messages=[
+            payload = {
+                "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"}
                 ],
-                temperature=0.6,
-                top_p=0.95,
-                max_tokens=65536,
-                frequency_penalty=0,
-                presence_penalty=0,
-                stream=False  # Set to False for non-streaming response
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "max_tokens": 65536,
+                "frequency_penalty": 0,
+                "presence_penalty": 0,
+                "stream": False
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=60
             )
             
-            if completion.choices and len(completion.choices) > 0:
-                return completion.choices[0].message.content.strip()
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('choices') and len(result['choices']) > 0:
+                    return result['choices'][0]['message']['content'].strip()
+            else:
+                print(f"NIM API error: {response.status_code} - {response.text}")
             return None
             
         except Exception as e:
@@ -147,23 +156,46 @@ class NIMService:
                 "Cite relevant filenames if provided in the context metadata."
             )
             
-            completion = self.client.chat.completions.create(
-                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
-                messages=[
+            payload = {
+                "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"}
                 ],
-                temperature=0.6,
-                top_p=0.95,
-                max_tokens=65536,
-                frequency_penalty=0,
-                presence_penalty=0,
-                stream=True  # Enable streaming
-            )
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "max_tokens": 65536,
+                "frequency_penalty": 0,
+                "presence_penalty": 0,
+                "stream": True
+            }
             
-            for chunk in completion:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+            with requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                stream=True,
+                timeout=60
+            ) as response:
+                if response.status_code == 200:
+                    for line in response.iter_lines():
+                        if line:
+                            line_str = line.decode('utf-8')
+                            if line_str.startswith('data: '):
+                                data_str = line_str[6:]
+                                if data_str.strip() == '[DONE]':
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    if data.get('choices') and len(data['choices']) > 0:
+                                        delta = data['choices'][0].get('delta', {})
+                                        content = delta.get('content')
+                                        if content:
+                                            yield content
+                                except json.JSONDecodeError:
+                                    continue
+                else:
+                    yield f"Error: HTTP {response.status_code}"
                     
         except Exception as e:
             print(f"Error generating streaming answer with NIM API: {e}")
@@ -179,23 +211,35 @@ class NIMService:
                 "Answer clearly and concisely. Use markdown formatting for lists and code when helpful."
             )
 
-            completion = self.client.chat.completions.create(
-                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
-                messages=[
+            payload = {
+                "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": question}
                 ],
-                temperature=0.6,
-                top_p=0.95,
-                max_tokens=65536,
-                frequency_penalty=0,
-                presence_penalty=0,
-                stream=False
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "max_tokens": 65536,
+                "frequency_penalty": 0,
+                "presence_penalty": 0,
+                "stream": False
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=60
             )
-
-            if completion.choices and len(completion.choices) > 0:
-                return completion.choices[0].message.content.strip()
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('choices') and len(result['choices']) > 0:
+                    return result['choices'][0]['message']['content'].strip()
+            else:
+                print(f"NIM API error: {response.status_code} - {response.text}")
             return None
+            
         except Exception as e:
             print(f"Error generating general answer with NIM API: {e}")
             return None
@@ -210,23 +254,47 @@ class NIMService:
                 "Answer clearly and concisely. Use markdown formatting for lists and code when helpful."
             )
 
-            completion = self.client.chat.completions.create(
-                model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
-                messages=[
+            payload = {
+                "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": question}
                 ],
-                temperature=0.6,
-                top_p=0.95,
-                max_tokens=65536,
-                frequency_penalty=0,
-                presence_penalty=0,
-                stream=True
-            )
-
-            for chunk in completion:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "max_tokens": 65536,
+                "frequency_penalty": 0,
+                "presence_penalty": 0,
+                "stream": True
+            }
+            
+            with requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                stream=True,
+                timeout=60
+            ) as response:
+                if response.status_code == 200:
+                    for line in response.iter_lines():
+                        if line:
+                            line_str = line.decode('utf-8')
+                            if line_str.startswith('data: '):
+                                data_str = line_str[6:]
+                                if data_str.strip() == '[DONE]':
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    if data.get('choices') and len(data['choices']) > 0:
+                                        delta = data['choices'][0].get('delta', {})
+                                        content = delta.get('content')
+                                        if content:
+                                            yield content
+                                except json.JSONDecodeError:
+                                    continue
+                else:
+                    yield f"Error: HTTP {response.status_code}"
+                    
         except Exception as e:
             print(f"Error generating streaming general answer with NIM API: {e}")
             yield f"Error: {str(e)}"

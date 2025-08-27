@@ -8,7 +8,16 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const jwt = await getToken?.({ template: 'default' });
+    
+    // Get JWT token - simplified call without template
+    let jwt;
+    try {
+      jwt = await getToken();
+    } catch (tokenError) {
+      console.error('Error getting token:', tokenError);
+      return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
+    }
+    
     if (!jwt) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
