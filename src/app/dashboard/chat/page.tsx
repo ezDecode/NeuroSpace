@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
+import type { ChatMessage } from '@/hooks/useChat';
 import { FileSelector } from '@/components/chat/FileSelector';
 import { ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { 
   PaperAirplaneIcon, 
   SparklesIcon,
-  ArrowPathIcon,
   StopIcon
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -139,7 +139,7 @@ export default function ChatPage() {
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              code: ({ node, className, children, ...props }) => {
+                              code: ({ className, children, ...props }) => {
                                 const isInline = !className;
                                 if (isInline) {
                                   return (
@@ -184,11 +184,14 @@ export default function ChatPage() {
                           </button>
                         </div>
                         {/* References - if any */}
-                        {(m as any).references && (m as any).references.length > 0 && (
+                        {(() => {
+                          const refs = (m as ChatMessage).references;
+                          if (!refs || refs.length === 0) return null;
+                          return (
                           <div className="mt-3 text-xs text-gray-400">
                             <div className="mb-1 font-medium">Sources:</div>
                             <div className="flex flex-wrap gap-2">
-                              {(m as any).references.map((ref: Reference, idx: number) => (
+                              {refs.map((ref: Reference, idx: number) => (
                                 <span
                                   key={`${ref.file_name}-${idx}`}
                                   className={`px-2 py-1 rounded-full flex items-center space-x-1 ${
@@ -208,7 +211,8 @@ export default function ChatPage() {
                               ))}
                             </div>
                           </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
                   )}

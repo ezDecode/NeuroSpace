@@ -20,7 +20,11 @@ interface UploadResponse {
 
 interface ErrorResponse {
   error: string;
-  details?: any;
+  details?: {
+    fileName?: string;
+    fileType?: string;
+    fileSize?: string;
+  };
   success: false;
 }
 
