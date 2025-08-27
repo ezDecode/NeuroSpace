@@ -13,12 +13,12 @@ class DummyClient:
 def test_get_file_metadata(monkeypatch):
 	service = S3Service()
 	service.s3_client = DummyClient({ 'userId': 'abc', 'originalName': 'file.pdf' })
-	meta = pytest.run(async_lambda(service.get_file_metadata, 'uploads/u/123'))
+	meta = pytest.run(service.get_file_metadata('uploads/u/123'))
 	assert meta['userId'] == 'abc'
 
 # Helper to run async function in pytest without event loop boilerplate
 class pytest:
 	@staticmethod
-	def run(coro_factory):
+	def run(coro):
 		import asyncio
-		return asyncio.get_event_loop().run_until_complete(coro_factory)
+		return asyncio.get_event_loop().run_until_complete(coro)
