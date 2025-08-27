@@ -52,7 +52,7 @@ async def test_pinecone_connection():
     print("🔍 Testing Pinecone Connection...")
     try:
         pinecone_service = PineconeService()
-        success = await pinecone_service.test_connection()
+        success = pinecone_service.test_connection()
         if success:
             print("✅ Pinecone connection successful")
             return True
@@ -100,7 +100,7 @@ async def test_full_pipeline():
             
             # Test Pinecone storage (if available)
             pinecone_service = PineconeService()
-            if await pinecone_service.test_connection():
+            if pinecone_service.test_connection():
                 test_vectors = []
                 for i, embedding in enumerate(valid_embeddings):
                     test_vectors.append({
@@ -113,12 +113,12 @@ async def test_full_pipeline():
                         }
                     })
                 
-                success = await pinecone_service.upsert_vectors(test_vectors)
+                success = pinecone_service.upsert_vectors(test_vectors)
                 if success:
                     print("✅ Pinecone vector storage successful")
                     
                     # Clean up test vectors
-                    await pinecone_service.delete_vectors([v['id'] for v in test_vectors])
+                    pinecone_service.delete_vectors([v['id'] for v in test_vectors])
                     print("✅ Test vectors cleaned up")
                 else:
                     print("❌ Pinecone vector storage failed")

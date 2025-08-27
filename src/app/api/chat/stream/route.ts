@@ -22,23 +22,25 @@ export async function POST(request: NextRequest) {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     const key = process.env.BACKEND_API_KEY;
 
-    // Determine if the user has any documents
-    let hasDocuments = false;
-    try {
-      const filesResp = await fetch(`${backendUrl}/api/files/`, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          ...(key ? { 'X-Backend-Key': key } : {}),
-          'Content-Type': 'application/json',
-        },
-      });
-      if (filesResp.ok) {
-        const filesData = await filesResp.json();
-        const total = typeof filesData?.total === 'number' ? filesData.total : Array.isArray(filesData?.files) ? filesData.files.length : 0;
-        hasDocuments = total > 0;
+    // Determine if we should use document mode. If user selected files, force document mode.
+    let hasDocuments = Array.isArray(selectedFiles) && selectedFiles.length > 0;
+    if (!hasDocuments) {
+      try {
+        const filesResp = await fetch(`${backendUrl}/api/files/`, {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            ...(key ? { 'X-Backend-Key': key } : {}),
+            'Content-Type': 'application/json',
+          },
+        });
+        if (filesResp.ok) {
+          const filesData = await filesResp.json();
+          const total = typeof filesData?.total === 'number' ? filesData.total : Array.isArray(filesData?.files) ? filesData.files.length : 0;
+          hasDocuments = total > 0;
+        }
+      } catch {
+        // ignore probe errors; default stays false when no selection
       }
-    } catch {
-      hasDocuments = false;
     }
 
     const route = hasDocuments ? 'ask_stream' : 'ask_direct_stream';
@@ -47,36 +49,58 @@ export async function POST(request: NextRequest) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
     
+    // Basic retry/backoff for transient backend errors
+    const maxRetries = 1;
+    let attempt = 0;
     let resp;
-    try {
-      resp = await fetch(`${backendUrl}/api/query/${route}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(key ? { 'X-Backend-Key': key } : {}),
-          Authorization: `Bearer ${jwt}`,
-        },
-        body: JSON.stringify({ 
-          user_id: userId, 
-          question: content, 
-          top_k: topK,
-          selected_files: selectedFiles
-        }),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        return new Response('Request timeout', { status: 408 });
+    while (true) {
+      try {
+        resp = await fetch(`${backendUrl}/api/query/${route}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(key ? { 'X-Backend-Key': key } : {}),
+            Authorization: `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ 
+            user_id: userId, 
+            question: content, 
+            top_k: topK,
+            selected_files: selectedFiles
+          }),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          return new Response('Request timeout', { status: 408 });
+        }
+        return new Response(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
       }
-      return new Response(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
+      // Retry on 429/5xx once
+      if ((resp.status === 429 || resp.status >= 500) && attempt < maxRetries) {
+        attempt += 1;
+        const retryAfter = Number(resp.headers.get('Retry-After')) || 2;
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        continue;
+      }
+      break;
     }
 
     clearTimeout(timeoutId);
 
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '');
-      const errorMessage = text || `Backend error: ${resp.status} ${resp.statusText}`;
+      let errorMessage = text || `Backend error: ${resp.status} ${resp.statusText}`;
+      if (resp.status === 401 || resp.status === 403) {
+        errorMessage = 'Authentication failed. Please re-login.';
+      } else if (resp.status === 408) {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (resp.status === 429) {
+        errorMessage = 'You are being rate limited. Please wait a moment and retry.';
+      } else if (resp.status >= 500) {
+        errorMessage = 'Server error. Please try again shortly.';
+      }
       console.error('Backend streaming error:', errorMessage);
       return new Response(errorMessage, { status: resp.status || 500 });
     }

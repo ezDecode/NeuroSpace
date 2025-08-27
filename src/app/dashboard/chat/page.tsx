@@ -191,24 +191,27 @@ export default function ChatPage() {
                           <div className="mt-3 text-xs text-gray-400">
                             <div className="mb-1 font-medium">Sources:</div>
                             <div className="flex flex-wrap gap-2">
-                              {refs.map((ref: Reference, idx: number) => (
-                                <span
-                                  key={`${ref.file_name}-${idx}`}
-                                  className={`px-2 py-1 rounded-full flex items-center space-x-1 ${
-                                    selectedFiles.includes(ref.file_name) 
-                                      ? 'bg-blue-900 text-blue-200 border border-blue-700' 
-                                      : 'bg-gray-800 text-gray-300'
-                                  }`}
-                                >
-                                  <span>📄</span>
-                                  <span className="truncate max-w-32">{ref.file_name}</span>
-                                  {ref.score && (
-                                    <span className="text-xs opacity-60">
-                                      ({Math.round(ref.score * 100)}%)
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
+                              {refs.map((ref: Reference, idx: number) => {
+                                const keyOrName = (ref as any).file_key || ref.file_name;
+                                return (
+                                  <span
+                                    key={`${ref.file_name}-${idx}`}
+                                    className={`px-2 py-1 rounded-full flex items-center space-x-1 ${
+                                      selectedFiles.includes(keyOrName) 
+                                        ? 'bg-blue-900 text-blue-200 border border-blue-700' 
+                                        : 'bg-gray-800 text-gray-300'
+                                    }`}
+                                  >
+                                    <span>📄</span>
+                                    <span className="truncate max-w-32">{ref.file_name}</span>
+                                    {ref.score && (
+                                      <span className="text-xs opacity-60">
+                                        ({Math.round(ref.score * 100)}%)
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                           );

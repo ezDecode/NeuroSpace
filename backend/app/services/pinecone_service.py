@@ -3,6 +3,7 @@ from pinecone import Pinecone, ServerlessSpec
 from typing import List, Optional, Dict, Any
 import uuid
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,17 @@ class PineconeService:
             raise ValueError("PINECONE_API_KEY environment variable is required")
         if not self.environment:
             raise ValueError("PINECONE_ENVIRONMENT environment variable is required")
+        # Validate environment/region: must be serverless region like 'us-east-1'
+        region_pattern = re.compile(r"^[a-z]{2}-[a-z]+-\d$")
+        if not region_pattern.match(self.environment):
+            raise ValueError(
+                f"PINECONE_ENVIRONMENT must be a valid serverless region (e.g., 'us-east-1'). Found: {self.environment}"
+            )
         
         self.embedding_dimension = embedding_dimension
-        logger.info(f"Initializing Pinecone service with dimension {embedding_dimension}")
+        logger.info(
+            f"Initializing Pinecone service with region={self.environment}, index={self.index_name}, dimension={embedding_dimension}"
+        )
         
         # Initialize Pinecone with new API
         try:
@@ -63,11 +72,23 @@ class PineconeService:
                         if isinstance(stats, dict):
                             index_dimension = stats.get('dimension')
                         if index_dimension and index_dimension != self.embedding_dimension:
-                            logger.warning(f"Index dimension mismatch: expected {self.embedding_dimension}, found {index_dimension}")
-                            raise ValueError(f"Index dimension mismatch: expected {self.embedding_dimension}, found {index_dimension}")
+                            msg = (
+                                f"Index dimension mismatch: expected {self.embedding_dimension}, found {index_dimension}. "
+                                f"Guidance: Recreate the index '{self.index_name}' with dimension {self.embedding_dimension} "
+                                f"(Pinecone serverless region '{self.environment}'), or change the embedding model to output {index_dimension}-dim vectors."
+                            )
+                            logger.error(msg)
+                            raise ValueError(msg)
                     except Exception as e:
                         logger.warning(f"Could not validate index dimension: {e}")
                     
+                    # Perform a lightweight readiness query to ensure index is queryable
+                    try:
+                        dummy_embedding = [0.0] * self.embedding_dimension
+                        _ = index.query(vector=dummy_embedding, top_k=1, include_metadata=False)
+                        logger.info(f"Index {self.index_name} readiness confirmed via no-op query")
+                    except Exception as e:
+                        logger.warning(f"Index {self.index_name} not ready for queries yet: {e}")
                     return index
             
             # Create new index if it doesn't exist
@@ -94,12 +115,26 @@ class PineconeService:
                         logger.info(f"Index {self.index_name} is ready with keys: {list(stats.keys())}")
                     else:
                         logger.info(f"Index {self.index_name} is ready")
-                    return index
+                    break
                 except Exception:
                     time.sleep(2)
                     waited += 2
-                    
-            raise Exception(f"Index creation timed out after {max_wait} seconds")
+            else:
+                raise Exception(f"Index creation timed out after {max_wait} seconds")
+
+            # Final readiness check with a no-op query (allows a short grace period)
+            readiness_wait = 0
+            readiness_max = 30
+            while readiness_wait < readiness_max:
+                try:
+                    dummy_embedding = [0.0] * self.embedding_dimension
+                    _ = index.query(vector=dummy_embedding, top_k=1, include_metadata=False)
+                    logger.info(f"Index {self.index_name} readiness confirmed via no-op query")
+                    break
+                except Exception:
+                    time.sleep(2)
+                    readiness_wait += 2
+            return index
             
         except Exception as e:
             logger.error(f"Error initializing Pinecone index: {e}")
@@ -131,10 +166,17 @@ class PineconeService:
                         logger.error(f"Vector {i} has invalid embedding dimension: expected {self.embedding_dimension}, got {len(embedding) if isinstance(embedding, list) else type(embedding)}")
                         continue
                     
+                    metadata = vector_data.get('metadata', {}) or {}
+                    # Enforce required metadata keys used in filters
+                    missing_metadata = [k for k in ["user_id", "file_key"] if k not in metadata]
+                    if missing_metadata:
+                        logger.error(f"Vector {i} missing required metadata keys: {missing_metadata}. Skipping upsert.")
+                        continue
+
                     upsert_data.append({
                         'id': vector_data.get('id', str(uuid.uuid4())),
                         'values': embedding,
-                        'metadata': vector_data.get('metadata', {})
+                        'metadata': metadata
                     })
                 except Exception as e:
                     logger.error(f"Error processing vector {i}: {e}")
