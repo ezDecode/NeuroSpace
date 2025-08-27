@@ -148,29 +148,37 @@ class PineconeService:
 
     @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
     def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> bool:
+    def upsert_vectors(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> Dict[str, Any]:
         """
-        Upsert vectors to Pinecone index with configurable batch size and better error handling
+        Upsert vectors to Pinecone index with configurable batch size and detailed result summary
+        Returns: { total, accepted, skipped, errors: [str] }
         """
         try:
             if not self.index:
                 logger.error("Pinecone index not initialized")
-                return False
+                return {"total": len(vectors or []), "accepted": 0, "skipped": len(vectors or []), "errors": ["Index not initialized"]}
 
             if not vectors:
                 logger.warning("No vectors provided for upsert")
-                return True
+                return {"total": 0, "accepted": 0, "skipped": 0, "errors": []}
 
             # Validate vectors and prepare for upsert
             upsert_data = []
+            validation_skipped = 0
+            errors: List[str] = []
             for i, vector_data in enumerate(vectors):
                 try:
                     if 'embedding' not in vector_data:
                         logger.error(f"Vector {i} missing 'embedding' field")
+                        validation_skipped += 1
+                        errors.append(f"vector[{i}]: missing 'embedding'")
                         continue
                     
                     embedding = vector_data['embedding']
                     if not isinstance(embedding, list) or len(embedding) != self.embedding_dimension:
                         logger.error(f"Vector {i} has invalid embedding dimension: expected {self.embedding_dimension}, got {len(embedding) if isinstance(embedding, list) else type(embedding)}")
+                        validation_skipped += 1
+                        errors.append(f"vector[{i}]: invalid embedding dimension")
                         continue
                     
                     metadata = vector_data.get('metadata', {}) or {}
@@ -178,6 +186,8 @@ class PineconeService:
                     missing_metadata = [k for k in ["user_id", "file_key"] if k not in metadata]
                     if missing_metadata:
                         logger.error(f"Vector {i} missing required metadata keys: {missing_metadata}. Skipping upsert.")
+                        validation_skipped += 1
+                        errors.append(f"vector[{i}]: missing metadata {missing_metadata}")
                         continue
 
                     upsert_data.append({
@@ -187,38 +197,52 @@ class PineconeService:
                     })
                 except Exception as e:
                     logger.error(f"Error processing vector {i}: {e}")
+                    validation_skipped += 1
+                    errors.append(f"vector[{i}]: exception during preparation: {str(e)[:120]}")
                     continue
 
             if not upsert_data:
                 logger.error("No valid vectors to upsert after validation")
-                return False
+                return {"total": len(vectors), "accepted": 0, "skipped": len(vectors), "errors": errors or ["No valid vectors after validation"]}
 
             logger.info(f"Upserting {len(upsert_data)} vectors in batches of {batch_size}")
 
             # Upsert in batches with error handling
-            failed_batches = 0
+            accepted = 0
             for i in range(0, len(upsert_data), batch_size):
                 batch = upsert_data[i:i + batch_size]
                 try:
                     self._upsert_breaker.call(self.index.upsert, vectors=batch)
+                    response = self.index.upsert(vectors=batch)
+                    # Pinecone v5 returns dict-like with upserted_count possibly
+                    upserted_count = None
+                    try:
+                        if isinstance(response, dict):
+                            upserted_count = response.get('upserted_count') or response.get('count')
+                    except Exception:
+                        upserted_count = None
+                    accepted += upserted_count if isinstance(upserted_count, int) else len(batch)
                     logger.debug(f"Successfully upserted batch {i//batch_size + 1}")
                 except Exception as e:
                     logger.error(f"Failed to upsert batch {i//batch_size + 1}: {e}")
-                    failed_batches += 1
+                    errors.append(f"batch[{i//batch_size + 1}]: upsert failed: {str(e)[:200]}")
 
-            total_batches = (len(upsert_data) + batch_size - 1) // batch_size
-            success_rate = (total_batches - failed_batches) / total_batches
-            
-            if failed_batches > 0:
-                logger.warning(f"Upsert completed with {failed_batches}/{total_batches} failed batches (success rate: {success_rate:.2%})")
+            total = len(vectors)
+            skipped = (total - accepted)
+            # Ensure skipped accounts for validation skips at minimum
+            if skipped < validation_skipped:
+                skipped = validation_skipped
+
+            if errors:
+                logger.warning(f"Upsert completed with errors. accepted={accepted}, skipped={skipped}, total={total}")
             else:
-                logger.info(f"All {total_batches} batches upserted successfully")
+                logger.info(f"Upsert completed successfully. accepted={accepted}, total={total}")
 
-            return success_rate >= 0.5  # Consider success if at least 50% of batches succeeded
+            return {"total": total, "accepted": accepted, "skipped": skipped, "errors": errors}
 
         except Exception as e:
             logger.error(f"Error upserting vectors to Pinecone: {e}")
-            return False
+            return {"total": len(vectors or []), "accepted": 0, "skipped": len(vectors or []), "errors": [str(e)]}
 
     @retry(wait=wait_exponential(multiplier=1, min=1, max=8), stop=stop_after_attempt(3))
     def search_similar(self, query_embedding: List[float], top_k: int = 5, filter_dict: Optional[Dict] = None) -> List[Dict]:

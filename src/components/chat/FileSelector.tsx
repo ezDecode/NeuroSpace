@@ -19,6 +19,8 @@ interface File {
   content_type: string;
   status: 'uploaded' | 'processing' | 'processed' | 'error';
   chunks_count: number;
+  embedding_count?: number;
+  last_error?: string | null;
   created_at: string;
   processed_at: string | null;
 }
@@ -35,6 +37,8 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [displayCount, setDisplayCount] = useState(50);
+  const [errorCount, setErrorCount] = useState(0);
+  const [processingCount, setProcessingCount] = useState(0);
 
   useEffect(() => {
     fetchFiles();
@@ -51,7 +55,13 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
       
       const data = await response.json();
       const processedFiles: File[] = (data.files || []).filter((file: File) => file.status === 'processed');
+      const allFiles: File[] = data.files || [];
+      const processedFiles = allFiles.filter((file: File) => file.status === 'processed');
+      const errored = allFiles.filter((file: File) => file.status === 'error');
+      const processing = allFiles.filter((file: File) => file.status === 'processing');
       setFiles(processedFiles);
+      setErrorCount(errored.length);
+      setProcessingCount(processing.length);
 
       // Prune any selected files that are no longer available
       const availableKeys = new Set(processedFiles.map((f) => f.file_key));
@@ -131,6 +141,25 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
             Upload
           </button>
         </div>
+        {(errorCount > 0 || processingCount > 0) && (
+          <div className="mt-2 text-[11px] text-gray-400">
+            {processingCount > 0 && (
+              <div>{processingCount} document{processingCount === 1 ? '' : 's'} still processing…</div>
+            )}
+            {errorCount > 0 && (
+              <div>
+                {errorCount} upload{errorCount === 1 ? '' : 's'} failed to process.{' '}
+                <button
+                  onClick={() => (window.location.href = '/dashboard/documents')}
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  View details
+                </button>
+              </div>
+            )}
+            <div className="mt-1">Tip: Image-only PDFs need OCR; upload a text-based PDF or contact admin.</div>
+          </div>
+        )}
       </div>
     );
   }
@@ -203,6 +232,24 @@ export function FileSelector({ selectedFiles, onFilesChange, className = '' }: F
             transition={{ duration: 0.2 }}
             className="border-t border-gray-600 overflow-hidden"
           >
+            {(errorCount > 0 || processingCount > 0) && (
+              <div className="px-3 py-2 bg-gray-700/60 border-b border-gray-600 text-[11px] text-gray-300 flex items-center justify-between">
+                <div>
+                  {processingCount > 0 && (
+                    <span className="mr-3">{processingCount} processing</span>
+                  )}
+                  {errorCount > 0 && (
+                    <span className="text-red-300">{errorCount} failed</span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); window.location.href = '/dashboard/documents'; }}
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  Manage documents
+                </button>
+              </div>
+            )}
             {/* Controls */}
             <div className="flex items-center justify-between p-3 bg-gray-700 border-b border-gray-600">
               <div className="text-xs text-gray-300">
