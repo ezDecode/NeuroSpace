@@ -75,9 +75,8 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
         pinecone_service = get_pinecone_service()
         supabase_service = get_supabase_service()
         
-        # Generate job ID and file ID
+        # Generate job ID
         job_id = str(uuid.uuid4())
-        file_id = str(uuid.uuid4())
         
         # Get actual file size from S3 first
         actual_file_size = await s3_service.get_file_size(request.file_key)
@@ -97,18 +96,38 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
             if not validate_file_size(local_file_path, max_size_mb=50):
                 raise HTTPException(status_code=400, detail="File too large for processing")
 
+            # Ensure existing file record exists to update status; avoid creating duplicates
+            existing_file = await supabase_service.get_file_by_key_and_user(request.file_key, request.user_id)
+            if not existing_file:
+                raise HTTPException(status_code=500, detail="File record not found for this file_key and user; cannot update status")
+
             # Extract text from file
             text = TextExtractor.extract_text(local_file_path, request.content_type)
-            if not text:
-                raise HTTPException(status_code=400, detail="Failed to extract text from file")
+            # Chunk the text (handles None/empty gracefully)
+            chunks = TextExtractor.chunk_text(text)
+            chunk_count = len(chunks)
+
+            # If no extractable text, update status as error and return
+            if chunk_count == 0:
+                await supabase_service.update_file_status(
+                    existing_file['id'],
+                    'error',
+                    chunks_count=0,
+                    file_size=actual_file_size,
+                    embedding_count=0,
+                    last_error='No extractable text'
+                )
+                return FileProcessingResponse(
+                    job_id=job_id,
+                    status='error',
+                    message='No extractable text',
+                    file_key=request.file_key
+                )
 
             # Security: Validate extracted text length
-            if len(text) > 10 * 1024 * 1024:  # 10MB text limit
+            if text and len(text) > 10 * 1024 * 1024:  # 10MB text limit
                 raise HTTPException(status_code=400, detail="Extracted text too large")
 
-            # Chunk the text
-            chunks = TextExtractor.chunk_text(text)
-            
             # Security: Limit number of chunks to prevent resource exhaustion
             if len(chunks) > 1000:
                 raise HTTPException(status_code=400, detail="Too many text chunks generated")
@@ -116,8 +135,9 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
             # Generate embeddings using Nvidia NIM API
             print(f"Generating embeddings for {len(chunks)} chunks...")
             embeddings = await nim_service.generate_embeddings_batch(chunks)
+            embedding_count = len([e for e in embeddings if e is not None])
             
-            # Filter out None embeddings and prepare for Pinecone
+            # Filter out None embeddings and prepare for Pinecone with enforced metadata
             valid_embeddings = []
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 if embedding:
@@ -127,64 +147,80 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
                         'id': f"{request.file_key}_chunk_{i}",
                         'embedding': embedding,
                         'metadata': {
+                            'user_id': request.user_id,
                             'file_key': request.file_key,
                             'file_name': request.file_name,
-                            'user_id': request.user_id,
                             'chunk_index': i,
                             'text': chunk_preview,
                             'content_type': request.content_type
                         }
                     })
             
-            # Store embeddings in Pinecone
-            if valid_embeddings:
-                success = pinecone_service.upsert_vectors(valid_embeddings)
-                if success:
-                    print(f"Successfully stored {len(valid_embeddings)} embeddings in Pinecone")
-                else:
-                    print("Failed to store embeddings in Pinecone")
-                    # Don't fail the entire process if Pinecone fails
-            
-            # Update existing file record in Supabase instead of creating new one
-            # First, find the existing file record by file_key and user_id
-            existing_file = await supabase_service.get_file_by_key_and_user(request.file_key, request.user_id)
-            
-            if existing_file:
-                # Update existing record with processing results
-                update_success = await supabase_service.update_file_status(
-                    existing_file['id'], 
-                    'processed', 
-                    len(valid_embeddings),
-                    actual_file_size  # Include the actual file size from S3
+            # If embedding_count is zero, mark error and return
+            if embedding_count == 0:
+                nim_summary = f"Embedding generation failed: 0/{chunk_count} successful"
+                await supabase_service.update_file_status(
+                    existing_file['id'],
+                    'error',
+                    chunks_count=chunk_count,
+                    file_size=actual_file_size,
+                    embedding_count=0,
+                    last_error=nim_summary
                 )
-                if update_success:
-                    print(f"File metadata updated in Supabase for file: {request.file_name}")
-                else:
-                    print(f"Failed to update file metadata in Supabase for file: {request.file_name}")
+                return FileProcessingResponse(
+                    job_id=job_id,
+                    status='error',
+                    message=nim_summary,
+                    file_key=request.file_key
+                )
+
+            # Store embeddings in Pinecone
+            upsert_result = {"total": len(valid_embeddings), "accepted": 0, "skipped": 0, "errors": []}
+            if valid_embeddings:
+                upsert_result = pinecone_service.upsert_vectors(valid_embeddings)
+                print(f"Pinecone upsert result: {upsert_result}")
+            
+            # Decide final status based on upsert result
+            upsert_accepted = int(upsert_result.get('accepted', 0) or 0)
+            if upsert_accepted == 0:
+                pinecone_error = "Pinecone upsert accepted 0 vectors"
+                if upsert_result.get('errors'):
+                    pinecone_error += f"; first error: {str(upsert_result['errors'][0])[:200]}"
+                await supabase_service.update_file_status(
+                    existing_file['id'],
+                    'error',
+                    chunks_count=chunk_count,
+                    file_size=actual_file_size,
+                    embedding_count=embedding_count,
+                    last_error=pinecone_error
+                )
+                return FileProcessingResponse(
+                    job_id=job_id,
+                    status='error',
+                    message=pinecone_error,
+                    file_key=request.file_key
+                )
+
+            # Success path: mark as processed with counts
+            update_success = await supabase_service.update_file_status(
+                existing_file['id'],
+                'processed',
+                chunks_count=embedding_count,
+                file_size=actual_file_size,
+                embedding_count=embedding_count,
+                last_error=None
+            )
+            if update_success:
+                print(f"File metadata updated in Supabase for file: {request.file_name}")
             else:
-                # Fallback: create new record if not found (shouldn't happen in normal flow)
-                file_record = {
-                    'file_key': request.file_key,
-                    'file_name': request.file_name,
-                    'user_id': request.user_id,
-                    'file_size': request.file_size,
-                    'content_type': request.content_type,
-                    'status': 'processed',
-                    'chunks_count': len(valid_embeddings)
-                }
-                
-                db_file_id = await supabase_service.create_file_record(file_record)
-                if db_file_id:
-                    print(f"File metadata created in Supabase with ID: {db_file_id}")
-                else:
-                    print(f"Failed to create file metadata in Supabase for file: {request.file_name}")
+                print(f"Failed to update file metadata in Supabase for file: {request.file_name}")
             
             print(f"Processed file {request.file_name}: {len(chunks)} chunks created, {len(valid_embeddings)} embeddings stored")
             
             return FileProcessingResponse(
                 job_id=job_id,
-                status="completed",
-                message=f"Successfully processed {request.file_name} into {len(chunks)} chunks",
+                status='processed',
+                message=f"Successfully processed {request.file_name}: {embedding_count} embeddings stored",
                 file_key=request.file_key
             )
             
