@@ -59,11 +59,23 @@ export default function UploadPage() {
     setFiles(prev => [...prev, ...newFiles]);
   }, []);
 
+  const MAX_FILE_SIZE_MB = Number(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 25);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: acceptedFileTypes,
     multiple: true,
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: MAX_FILE_SIZE_MB * 1024 * 1024,
+    onDropRejected: (rejections) => {
+      rejections.forEach(r => {
+        const fileName = r.file.name;
+        const sizeError = r.errors.find(e => e.code === 'file-too-large');
+        if (sizeError) {
+          toast.error(`${fileName} is too large. Max ${MAX_FILE_SIZE_MB}MB.`);
+        } else {
+          toast.error(`${fileName} was rejected.`);
+        }
+      });
+    }
   });
 
   const removeFile = (index: number) => {
@@ -417,7 +429,7 @@ export default function UploadPage() {
             or click to browse files
           </p>
           <p className="text-sm text-gray-500">
-            Maximum file size: 50MB • Supported: PDF, DOC, DOCX, TXT, MD, RTF
+            Maximum file size: {MAX_FILE_SIZE_MB}MB • Supported: PDF, DOC, DOCX, TXT, MD, RTF
           </p>
         </div>
       </motion.div>

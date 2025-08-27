@@ -10,6 +10,7 @@ import os
 import re
 from datetime import datetime
 from app.deps import get_verified_user, require_backend_key
+from app.config import settings
 
 router = APIRouter(dependencies=[Depends(require_backend_key)])
 
@@ -46,7 +47,7 @@ def validate_file_key(file_key: str, user_id: str) -> bool:
     return bool(safe_pattern.match(filename))
 
 # Security: Validate file size
-def validate_file_size(file_path: str, max_size_mb: int = 50) -> bool:
+def validate_file_size(file_path: str, max_size_mb: int = settings.max_file_size_mb) -> bool:
     """Validate file size to prevent memory exhaustion"""
     try:
         file_size = os.path.getsize(file_path)
@@ -94,8 +95,8 @@ async def process_file(request: FileProcessingRequest, current_user: str = Depen
 
         try:
             # Security: Validate file size after download
-            if not validate_file_size(local_file_path, max_size_mb=50):
-                raise HTTPException(status_code=400, detail="File too large for processing")
+            if not validate_file_size(local_file_path, max_size_mb=settings.max_file_size_mb):
+                raise HTTPException(status_code=413, detail=f"File too large. Maximum {settings.max_file_size_mb}MB allowed")
 
             # Extract text from file
             text = TextExtractor.extract_text(local_file_path, request.content_type)
