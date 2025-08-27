@@ -17,6 +17,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
 import { ProgressBar } from '@/components/ui/LoadingStates';
+import { supabase } from '@/lib/supabaseClient';
 
 interface FileWrapper {
   file: File;
@@ -44,6 +45,26 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
+  // Subscribe to job updates via Supabase Realtime if configured
+  const subscribeToJob = useCallback((jobId: string, index: number) => {
+    try {
+      if (!supabase) return;
+      const channel = supabase.channel(`job:${jobId}`);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'processing_jobs', filter: `id=eq.${jobId}` }, (payload) => {
+        const row: any = payload.new || payload.old;
+        const status = row?.status as string;
+        if (status === 'completed') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success', progress: 100 } : f));
+          channel.unsubscribe();
+        } else if (status === 'failed') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error', error: 'Background processing failed' } : f));
+          channel.unsubscribe();
+        } else if (status === 'processing') {
+          setFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'processing', progress: Math.max(f.progress, 85) } : f));
+        }
+      }).subscribe();
+    } catch {}
+  }, [supabase, setFiles]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     console.log('Files dropped:', acceptedFiles);
@@ -313,6 +334,8 @@ export default function UploadPage() {
         // Enqueue processing
         const enqueueResult = await processFile(fileKey, fileWrapper.name, fileWrapper.size, fileWrapper.type);
         const jobId = enqueueResult.jobId;
+        // Attempt realtime subscription (best-effort)
+        subscribeToJob(jobId, i);
         
         // Poll job status until completion or failure
         let attempts = 0;

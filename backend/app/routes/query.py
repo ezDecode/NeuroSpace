@@ -46,6 +46,26 @@ class HealthCheckResponse(BaseModel):
 	services: Dict[str, Dict[str, Any]]
 	overall_status: str
 
+
+def _tokenize(text: str) -> List[str]:
+	"""
+	Simple tokenizer for lexical scoring
+	"""
+	try:
+		import re
+		return [t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 1]
+	except Exception:
+		return []
+
+
+def _normalize_scores(values: List[float]) -> List[float]:
+	if not values:
+		return []
+	lo, hi = min(values), max(values)
+	if hi - lo == 0:
+		return [1.0 for _ in values]
+	return [(v - lo) / (hi - lo) for v in values]
+
 # Use lazy initialization for services with proper embedding dimension coordination
 def get_nim_service():
     return NIMService()
@@ -104,8 +124,36 @@ async def ask_question(payload: QueryRequest, current_user: str = Depends(get_ve
 	if payload.selected_files:
 		filter_dict["file_key"] = { "$in": payload.selected_files }
 	
-	matches = pinecone_service.search_similar(embedding, top_k=payload.top_k, filter_dict=filter_dict)
+	matches = pinecone_service.search_similar(embedding, top_k=max(payload.top_k, 10), filter_dict=filter_dict)
 	logger.info("QnA: pinecone returned %d matches in %.2f ms", len(matches), (time.time()-pc_start)*1000)
+
+	# Hybrid: lexical re-ranking using simple keyword overlap between question and chunk text
+	q_tokens = set(_tokenize(payload.question))
+	lex_scores: List[float] = []
+	vec_scores: List[float] = []
+	for m in matches:
+		md = m.get('metadata', {})
+		text = md.get('text', '')
+		t_tokens = set(_tokenize(text))
+		# Jaccard similarity proxy
+		inter = len(q_tokens & t_tokens)
+		union = len(q_tokens | t_tokens) or 1
+		lex = inter / union
+		lex_scores.append(lex)
+		vec_scores.append(m.get('score') or 0.0)
+
+	lex_n = _normalize_scores(lex_scores)
+	vec_n = _normalize_scores(vec_scores)
+
+	combined: List[Dict[str, Any]] = []
+	for i, m in enumerate(matches):
+		# Weighted blend (tuneable): 0.7 vector, 0.3 lexical
+		blend = 0.7 * (vec_n[i] if i < len(vec_n) else 0) + 0.3 * (lex_n[i] if i < len(lex_n) else 0)
+		m['hybrid_score'] = blend
+		combined.append(m)
+
+	combined.sort(key=lambda x: x.get('hybrid_score', 0), reverse=True)
+	matches = combined[: payload.top_k]
 
 	# 3) Assemble context from matches
 	context_parts: List[str] = []
