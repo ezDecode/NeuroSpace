@@ -1,17 +1,27 @@
-import boto3
 import os
-from botocore.exceptions import ClientError
+try:
+    import boto3  # type: ignore
+    from botocore.exceptions import ClientError  # type: ignore
+except Exception:  # pragma: no cover - allow running without AWS deps
+    boto3 = None  # type: ignore
+    class ClientError(Exception):  # Minimal stand-in
+        pass
 import tempfile
 from typing import Optional
 
 class S3Service:
     def __init__(self):
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_REGION')
-        )
+        # Lazily handle missing boto3 in test environments
+        if boto3 is not None:
+            self.s3_client = boto3.client(
+                's3',
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_REGION')
+            )
+        else:
+            # Placeholder; tests can monkeypatch this attribute
+            self.s3_client = None
         self.bucket_name = os.getenv('AWS_S3_BUCKET_NAME')
 
     async def download_file(self, file_key: str) -> Optional[str]:

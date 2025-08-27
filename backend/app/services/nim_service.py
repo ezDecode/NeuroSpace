@@ -23,15 +23,15 @@ class NIMService:
         self.api_key = os.getenv('NVIDIA_NIM_API_KEY')
         self.base_url = os.getenv('NVIDIA_NIM_BASE_URL', 'https://integrate.api.nvidia.com/v1')
         
-        # Validate API key on initialization
+        # Do not hard-fail on missing API key at initialization to allow tests that
+        # do not perform network calls (e.g., parsing helpers). Networked methods
+        # will validate and error appropriately when invoked.
         if not self.api_key:
-            raise EmbeddingError(
-                "NVIDIA_NIM_API_KEY environment variable is not set",
-                error_code="MISSING_API_KEY"
-            )
-        
+            logger.warning("NVIDIA_NIM_API_KEY is not set; network calls will fail until configured")
+
+        auth_header = f"Bearer {self.api_key}" if self.api_key else ""
         self.headers = {
-            'Authorization': f'Bearer {self.api_key}',
+            'Authorization': auth_header,
             'Content-Type': 'application/json'
         }
         # Use direct HTTP requests instead of OpenAI client to avoid proxy issues
