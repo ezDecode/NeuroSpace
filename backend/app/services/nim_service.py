@@ -177,15 +177,73 @@ class NIMService:
             error_code="MAX_RETRIES_EXCEEDED"
         )
 
-    async def generate_embeddings_batch(self, texts: List[str]) -> List[Optional[List[float]]]:
+    async def generate_embeddings_batch(self, texts: List[str], max_concurrent: int = 5) -> List[Optional[List[float]]]:
         """
-        Generate embeddings for multiple texts
+        Generate embeddings for multiple texts with improved batch processing,
+        retry logic, and error aggregation
         """
-        embeddings = []
-        for text in texts:
-            embedding = await self.generate_embedding(text)
-            embeddings.append(embedding)
-        return embeddings
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        
+        if not texts:
+            logger.warning("No texts provided for batch embedding generation")
+            return []
+        
+        logger.info(f"Generating embeddings for {len(texts)} texts with max_concurrent={max_concurrent}")
+        
+        # Track results and errors
+        results = [None] * len(texts)
+        failed_indices = []
+        
+        async def process_text_with_retry(index: int, text: str, max_retries: int = 2) -> None:
+            """Process a single text with retry logic"""
+            for attempt in range(max_retries + 1):
+                try:
+                    embedding = await self.generate_embedding(text, max_retries=1)  # Single retry per call
+                    results[index] = embedding
+                    return
+                except EmbeddingError as e:
+                    if e.error_code in ["RATE_LIMITED", "TIMEOUT", "CONNECTION_ERROR", "SERVER_ERROR"] and attempt < max_retries:
+                        wait_time = (attempt + 1) * 2  # Exponential backoff
+                        logger.warning(f"Retrying text {index} in {wait_time}s due to {e.error_code}")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"Failed to generate embedding for text {index}: {e.message}")
+                        failed_indices.append(index)
+                        return
+                except Exception as e:
+                    logger.error(f"Unexpected error for text {index}: {e}")
+                    failed_indices.append(index)
+                    return
+        
+        # Process texts in batches to respect rate limits
+        batch_size = min(max_concurrent, len(texts))
+        for i in range(0, len(texts), batch_size):
+            batch_end = min(i + batch_size, len(texts))
+            batch_tasks = [
+                process_text_with_retry(idx, texts[idx])
+                for idx in range(i, batch_end)
+            ]
+            
+            logger.debug(f"Processing batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
+            await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            # Add delay between batches to respect rate limits
+            if batch_end < len(texts):
+                await asyncio.sleep(0.5)
+        
+        # Log results summary
+        successful = len([r for r in results if r is not None])
+        failed = len(failed_indices)
+        success_rate = successful / len(texts) if texts else 0
+        
+        logger.info(f"Batch embedding generation completed: {successful}/{len(texts)} successful ({success_rate:.2%})")
+        
+        if failed_indices:
+            logger.warning(f"Failed to generate embeddings for texts at indices: {failed_indices}")
+        
+        return results
 
     async def test_connection(self) -> bool:
         """
@@ -196,8 +254,98 @@ class NIMService:
             embedding = await self.generate_embedding(test_text)
             return embedding is not None and len(embedding) > 0
         except Exception as e:
-            print(f"NIM API connection test failed: {e}")
+            logger.error(f"NIM API connection test failed: {e}")
             return False
+
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Comprehensive health check for NIM service
+        """
+        health_status = {
+            "service": "nvidia_nim",
+            "status": "unknown",
+            "details": {},
+            "timestamp": None
+        }
+        
+        try:
+            import time
+            health_status["timestamp"] = time.time()
+            
+            # Check API key
+            if not self.api_key:
+                health_status["status"] = "error"
+                health_status["details"]["error"] = "API key not configured"
+                return health_status
+            
+            health_status["details"]["api_key_configured"] = True
+            health_status["details"]["base_url"] = self.base_url
+            
+            # Test embedding generation
+            start_time = time.time()
+            try:
+                test_embedding = await self.generate_embedding("test")
+                embedding_time = (time.time() - start_time) * 1000  # ms
+                
+                if test_embedding and len(test_embedding) > 0:
+                    health_status["status"] = "healthy"
+                    health_status["details"]["embedding_test"] = {
+                        "success": True,
+                        "dimension": len(test_embedding),
+                        "response_time_ms": round(embedding_time, 2)
+                    }
+                else:
+                    health_status["status"] = "degraded"
+                    health_status["details"]["embedding_test"] = {
+                        "success": False,
+                        "error": "Empty or invalid embedding returned"
+                    }
+                    
+            except EmbeddingError as e:
+                health_status["status"] = "degraded"
+                health_status["details"]["embedding_test"] = {
+                    "success": False,
+                    "error": e.message,
+                    "error_code": e.error_code
+                }
+                
+                # Classify severity based on error type
+                if e.error_code in ["MISSING_API_KEY", "AUTHENTICATION_FAILED"]:
+                    health_status["status"] = "error"
+            
+            # Test chat completion
+            start_time = time.time()
+            try:
+                test_answer = await self.generate_general_answer("What is 2+2?")
+                chat_time = (time.time() - start_time) * 1000  # ms
+                
+                health_status["details"]["chat_test"] = {
+                    "success": test_answer is not None,
+                    "response_time_ms": round(chat_time, 2)
+                }
+                
+                if test_answer is None and health_status["status"] == "healthy":
+                    health_status["status"] = "degraded"
+                    
+            except Exception as e:
+                health_status["details"]["chat_test"] = {
+                    "success": False,
+                    "error": str(e)
+                }
+                
+        except Exception as e:
+            health_status["status"] = "error"
+            health_status["details"]["error"] = str(e)
+            logger.error(f"NIM health check failed: {e}")
+        
+        return health_status
+
+    def get_embedding_dimension(self) -> int:
+        """
+        Get the expected embedding dimension for the configured model
+        """
+        # NVIDIA nv-embedqa-e5-v5 produces 1024-dimensional embeddings
+        return 1024
 
     async def generate_answer(self, question: str, context: str) -> Optional[str]:
         """
