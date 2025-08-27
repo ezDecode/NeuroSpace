@@ -145,10 +145,26 @@ async def ask_question_stream(payload: QueryRequest, current_user: str = Depends
 	pinecone_service = get_pinecone_service()
 
 	# 1) Embed query
-	embedding = await nim_service.generate_embedding(payload.question.strip())
-	if not embedding:
-		logger.error("QnA Stream: embedding failed")
-		raise HTTPException(status_code=500, detail="Failed to embed query")
+	try:
+		embedding = await nim_service.generate_embedding(payload.question.strip())
+		if not embedding:
+			logger.error("QnA Stream: embedding returned None")
+			raise HTTPException(status_code=500, detail="Failed to embed query - no embedding returned")
+	except EmbeddingError as e:
+		logger.error(f"QnA Stream: embedding failed with specific error: {e.message} (code: {e.error_code})")
+		if e.error_code == "MISSING_API_KEY":
+			raise HTTPException(status_code=500, detail="Configuration error: NVIDIA API key not configured")
+		elif e.error_code == "AUTHENTICATION_FAILED":
+			raise HTTPException(status_code=500, detail="Authentication error: Invalid NVIDIA API key")
+		elif e.error_code == "RATE_LIMITED":
+			raise HTTPException(status_code=429, detail="Rate limited by NVIDIA API. Please try again later.")
+		elif e.error_code == "TIMEOUT":
+			raise HTTPException(status_code=408, detail="Embedding request timed out. Please try again.")
+		else:
+			raise HTTPException(status_code=500, detail=f"Failed to embed query: {e.message}")
+	except Exception as e:
+		logger.error(f"QnA Stream: unexpected embedding error: {e}")
+		raise HTTPException(status_code=500, detail="Failed to embed query due to unexpected error")
 
 	# 2) Pinecone search scoped to user_id
 	filter_dict = { "user_id": { "$eq": payload.user_id } }
