@@ -6,17 +6,11 @@ import {
   Cog6ToothIcon,
   PlusIcon,
   FolderIcon,
-  ChartBarIcon,
-  ClockIcon,
   SparklesIcon,
-  ArrowUpIcon,
-  UsersIcon,
-  DocumentMagnifyingGlassIcon,
-  CpuChipIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
+import { componentClasses, designTokens, getCardClass } from '@/lib/design-system';
 import useSWR from 'swr';
 
 const fetcher = async (url: string) => {
@@ -76,46 +70,6 @@ const quickActions = [
 export default function Dashboard() {
   const { data: filesData, isLoading: filesLoading } = useSWR('/api/files', fetcher);
   
-  // Calculate real stats from API data
-  const stats = [
-    {
-      title: 'Total Documents',
-      value: filesLoading ? '...' : (filesData?.files?.length || 0).toString(),
-      change: '+0%',
-      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
-      icon: DocumentTextIcon,
-      color: 'from-blue-500 to-cyan-500',
-      description: 'Files uploaded'
-    },
-    {
-      title: 'Chat Sessions',
-      value: '0',
-      change: '+0%',
-      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
-      icon: ChatBubbleLeftRightIcon,
-      color: 'from-purple-500 to-pink-500',
-      description: 'This month'
-    },
-    {
-      title: 'Storage Used',
-      value: filesLoading ? '...' : `${((filesData?.files?.reduce((acc: number, file: any) => acc + (file.file_size || 0), 0) || 0) / (1024 * 1024 * 1024)).toFixed(1)} GB`,
-      change: '+0 GB',
-      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
-      icon: FolderIcon,
-      color: 'from-green-500 to-emerald-500',
-      description: 'Of 10 GB total'
-    },
-    {
-      title: 'AI Responses',
-      value: '0',
-      change: '+0%',
-      changeType: 'neutral' as 'positive' | 'negative' | 'neutral',
-      icon: CpuChipIcon,
-      color: 'from-orange-500 to-red-500',
-      description: 'Generated today'
-    }
-  ];
-  
   return (
     <div className={componentClasses.layout.page}>
       {/* Welcome Header */}
@@ -138,50 +92,11 @@ export default function Dashboard() {
         </p>
       </motion.div>
 
-      {/* Stats Grid */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-        className={componentClasses.layout.gridStats}
-      >
-        {stats.map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
-              className={getCardClass(true)}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
-                  <IconComponent className="h-6 w-6 text-white" />
-                </div>
-                <div className={`flex items-center space-x-1 text-sm ${
-                  stat.changeType === 'positive' ? 'text-green-400' : 
-                  stat.changeType === 'negative' ? 'text-red-400' : 'text-white/60'
-                }`}>
-                  <ArrowUpIcon className="h-3 w-3" />
-                  <span>{stat.change}</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-white">{stat.value}</div>
-                <div className="text-sm text-white/60">{stat.title}</div>
-                <div className="text-xs text-white/40">{stat.description}</div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
       {/* Quick Actions */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
         className={componentClasses.layout.section}
       >
         <div className="flex items-center justify-between">
@@ -197,7 +112,7 @@ export default function Dashboard() {
                 key={action.title}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 + index * 0.1 }}
+                transition={{ duration: 0.4, delay: 0.1 + index * 0.1 }}
               >
                 <Link
                   href={action.href}
@@ -223,7 +138,7 @@ export default function Dashboard() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.3 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
         className={componentClasses.layout.section}
       >
         <div className="flex items-center justify-between">
@@ -289,7 +204,7 @@ export default function Dashboard() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
         className="text-center py-8"
       >
         <div className="inline-flex items-center space-x-2 text-white/40 text-sm">

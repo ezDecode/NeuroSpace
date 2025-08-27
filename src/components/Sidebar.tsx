@@ -16,7 +16,6 @@ import {
   BellIcon,
   SparklesIcon,
   FolderIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'classnames';
 import { componentClasses, designTokens, getCardClass, getButtonClass } from '@/lib/design-system';
@@ -133,7 +132,7 @@ export default function Sidebar() {
                   {user?.fullName || 'User'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">
-                  {user?.primaryEmailAddress?.emailAddress || 'user@example.com'}
+                  {user?.primaryEmailAddress?.emailAddress || ''}
                 </p>
               </div>
             )}
