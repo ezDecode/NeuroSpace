@@ -187,6 +187,32 @@ class NIMService:
             error_code="MAX_RETRIES_EXCEEDED"
         )
 
+    def _parse_embedding_response(self, content: Any) -> List[float]:
+        """
+        Parse an embedding response that may be a JSON string or a list into a numeric list.
+        This is primarily used by tests to validate parsing behavior.
+        """
+        try:
+            # If content is already a list, coerce to floats
+            if isinstance(content, list):
+                return [float(x) for x in content]
+            # If string, attempt JSON parse
+            if isinstance(content, str):
+                parsed = json.loads(content)
+                if isinstance(parsed, list):
+                    return [float(x) for x in parsed]
+                # Some providers return {"data":[{"embedding":[...] }]} structure
+                if isinstance(parsed, dict):
+                    data = parsed.get("data")
+                    if isinstance(data, list) and data:
+                        emb = data[0].get("embedding")
+                        if isinstance(emb, list):
+                            return [float(x) for x in emb]
+            # Fallback: empty list
+            return []
+        except Exception:
+            return []
+
     async def generate_embeddings_batch(self, texts: List[str], max_concurrent: int = 5) -> List[Optional[List[float]]]:
         """
         Generate embeddings for multiple texts with improved batch processing,
