@@ -74,11 +74,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
   try {
     if (!isProd) console.log('Upload API called');
     
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       if (!isProd) console.log('No user ID found');
       return NextResponse.json({ 
         error: 'Unauthorized',
+        success: false 
+      }, { status: 401 });
+    }
+    
+    const jwt = await getToken();
+    if (!jwt) {
+      if (!isProd) console.log('No JWT token found');
+      return NextResponse.json({ 
+        error: 'Missing auth token',
         success: false 
       }, { status: 401 });
     }

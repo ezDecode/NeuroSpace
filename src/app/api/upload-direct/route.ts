@@ -125,15 +125,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Register the file with the backend
-    const { getToken } = await auth();
-    const jwt = await getToken();
-    
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     const registerResponse = await fetch(`${backendUrl}/api/files/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwt}`,
+        'Authorization': `Bearer ${await (await auth()).getToken()}`,
+        ...(process.env.BACKEND_API_KEY ? { 'X-Backend-Key': process.env.BACKEND_API_KEY } : {}),
       },
       body: JSON.stringify({
         file_key: fileKey,
@@ -144,7 +142,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!registerResponse.ok) {
-      const errorData = await registerResponse.json();
+      let errorData;
+      try {
+        errorData = await registerResponse.json();
+      } catch (parseError) {
+        const errorText = await registerResponse.text();
+        console.error('Register response parse error:', parseError, 'Response text:', errorText);
+        return NextResponse.json({ 
+          error: `Failed to register file: ${registerResponse.status} ${registerResponse.statusText}` 
+        }, { status: registerResponse.status });
+      }
       return NextResponse.json({ 
         error: errorData.error || 'Failed to register file' 
       }, { status: registerResponse.status });
