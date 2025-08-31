@@ -13,8 +13,11 @@ import {
   Link as LinkIcon,
   Folder as FolderIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  ViewList as ViewListIcon,
+  CheckBox as CheckBoxIcon
 } from '@mui/icons-material';
+import FileSelector from '@/components/chat/FileSelector';
 import { 
   IconButton, 
   Tooltip, 
@@ -93,6 +96,7 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
   const [searchQuery, setSearchQuery] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'selector'>('list');
 
   const { data: filesData, mutate } = useSWR<{files: FileData[]}>('/api/files', fetcher);
 
@@ -172,11 +176,22 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Sources</h2>
-          <Tooltip title="Discover sources">
-            <IconButton size="small" className="text-gray-600">
-              <SearchIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <div className="flex items-center space-x-1">
+            <Tooltip title={viewMode === 'list' ? "Switch to selector view" : "Switch to list view"}>
+              <IconButton 
+                size="small" 
+                className="text-gray-600"
+                onClick={() => setViewMode(viewMode === 'list' ? 'selector' : 'list')}
+              >
+                {viewMode === 'list' ? <CheckBoxIcon fontSize="small" /> : <ViewListIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Discover sources">
+              <IconButton size="small" className="text-gray-600">
+                <SearchIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </div>
         </div>
         
         <p className="text-sm text-gray-600 mb-4">
@@ -212,71 +227,87 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
 
       {/* Sources List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredFiles.length === 0 ? (
-          <div className="p-8 text-center">
-            <FolderIcon className="text-gray-300 mb-4" style={{ fontSize: 48 }} />
-            <Typography variant="body2" color="textSecondary">
-              Saved sources will appear here
-            </Typography>
-            <Typography variant="caption" color="textSecondary" className="block mt-2">
-              Click Add above to add PDFs, websites, text, videos, or audio files. Or import a file directly from Google Drive.
-            </Typography>
-          </div>
-        ) : (
-          <List dense>
-            {filteredFiles.map((file) => (
-              <ListItem
-                key={file.id}
-                className="hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleSourceToggle(file.id)}
-              >
-                <ListItemIcon>
-                  <Checkbox
-                    edge="start"
-                    checked={selectedSources.includes(file.id)}
-                    size="small"
-                  />
-                </ListItemIcon>
-                
-                <ListItemIcon>
-                  {getFileIcon(file.file_name)}
-                </ListItemIcon>
-                
-                <ListItemText
-                  primary={
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {file.file_name}
+        {viewMode === 'list' ? (
+          // Original List View
+          filteredFiles.length === 0 ? (
+            <div className="p-8 text-center">
+              <FolderIcon className="text-gray-300 mb-4" style={{ fontSize: 48 }} />
+              <Typography variant="body2" color="textSecondary">
+                Saved sources will appear here
+              </Typography>
+              <Typography variant="caption" color="textSecondary" className="block mt-2">
+                Click Add above to add PDFs, websites, text, videos, or audio files. Or import a file directly from Google Drive.
+              </Typography>
+            </div>
+          ) : (
+            <List dense>
+              {filteredFiles.map((file) => (
+                <ListItem
+                  key={file.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleSourceToggle(file.id)}
+                >
+                  <ListItemIcon>
+                    <Checkbox
+                      edge="start"
+                      checked={selectedSources.includes(file.id)}
+                      size="small"
+                    />
+                  </ListItemIcon>
+                  
+                  <ListItemIcon>
+                    {getFileIcon(file.file_name)}
+                  </ListItemIcon>
+                  
+                  <ListItemText
+                    primary={
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {file.file_name}
+                        </span>
+                        <Chip
+                          label={file.status}
+                          size="small"
+                          color={getStatusColor(file.status) as any}
+                          variant="outlined"
+                        />
+                      </div>
+                    }
+                    secondary={
+                      <span className="text-xs text-gray-500">
+                        {(file.file_size / (1024 * 1024)).toFixed(1)} MB • {new Date(file.created_at).toLocaleDateString()}
                       </span>
-                      <Chip
-                        label={file.status}
-                        size="small"
-                        color={getStatusColor(file.status) as any}
-                        variant="outlined"
-                      />
-                    </div>
-                  }
-                  secondary={
-                    <span className="text-xs text-gray-500">
-                      {(file.file_size / (1024 * 1024)).toFixed(1)} MB • {new Date(file.created_at).toLocaleDateString()}
-                    </span>
-                  }
-                />
-                
-                <ListItemSecondaryAction>
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMenuOpen(e, file);
-                    }}
-                  >
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
+                    }
+                  />
+                  
+                  <ListItemSecondaryAction>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuOpen(e, file);
+                      }}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          )
+        ) : (
+          // New FileSelector View
+          <div className="p-4">
+            <FileSelector
+              files={filteredFiles}
+              selectedFiles={selectedSources}
+              onSelectionChange={onSourceSelect}
+              isLoading={!filesData && !filteredFiles.length}
+              className="h-full"
+              maxDisplayCount={20}
+              showSelectAll={true}
+            />
+          </div>
         )}
       </div>
 
