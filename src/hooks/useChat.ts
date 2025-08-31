@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { apiClient, ChatMessage, ChatRequest, ChatResponse } from '@/utils/apiClient';
+import { useAuth } from './useAuth';
 
 export interface ChatState {
   messages: ChatMessage[];
@@ -25,10 +26,20 @@ export function useChat(): UseChatReturn {
     selectedSources: [],
   });
 
+  const { getTokenWithFallback } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (message: string) => {
     if (!message.trim() || state.isStreaming) return;
+
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -50,7 +61,7 @@ export function useChat(): UseChatReturn {
         history: state.messages.slice(-10), // Last 10 messages for context
       };
 
-      const response = await apiClient.sendChatMessage(request);
+      const response = await apiClient.sendChatMessage(request, token);
 
       if (response.error) {
         throw new Error(response.error);
@@ -84,10 +95,19 @@ export function useChat(): UseChatReturn {
         error: error instanceof Error ? error.message : 'Chat failed',
       }));
     }
-  }, [state.messages, state.selectedSources, state.isStreaming]);
+  }, [state.messages, state.selectedSources, state.isStreaming, getTokenWithFallback]);
 
   const sendMessageStream = useCallback(async (message: string) => {
     if (!message.trim() || state.isStreaming) return;
+
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
 
     // Cancel any ongoing stream
     if (abortControllerRef.current) {
@@ -108,21 +128,6 @@ export function useChat(): UseChatReturn {
       error: null,
     }));
 
-    // Create a placeholder assistant message for streaming
-    const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: ChatMessage = {
-      id: assistantMessageId,
-      content: '',
-      role: 'assistant',
-      timestamp: new Date(),
-      sources: [],
-    };
-
-    setState(prev => ({
-      ...prev,
-      messages: [...prev.messages, assistantMessage],
-    }));
-
     try {
       const request: ChatRequest = {
         message: message.trim(),
@@ -130,51 +135,48 @@ export function useChat(): UseChatReturn {
         history: state.messages.slice(-10),
       };
 
-      let fullResponse = '';
-
       await apiClient.sendChatMessageStream(
         request,
-        // onChunk callback
-        (chunk: string) => {
-          fullResponse += chunk;
-          setState(prev => ({
-            ...prev,
-            messages: prev.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: fullResponse }
-                : msg
-            ),
-          }));
+        (chunk) => {
+          // Handle streaming chunks
+          setState(prev => {
+            const lastMessage = prev.messages[prev.messages.length - 1];
+            if (lastMessage && lastMessage.role === 'assistant') {
+              // Update existing assistant message
+              const updatedMessages = [...prev.messages];
+              updatedMessages[updatedMessages.length - 1] = {
+                ...lastMessage,
+                content: lastMessage.content + chunk,
+              };
+              return { ...prev, messages: updatedMessages };
+            } else {
+              // Create new assistant message
+              const newMessage: ChatMessage = {
+                id: Date.now().toString(),
+                content: chunk,
+                role: 'assistant',
+                timestamp: new Date(),
+              };
+              return { ...prev, messages: [...prev.messages, newMessage] };
+            }
+          });
         },
-        // onComplete callback
-        (response: ChatResponse) => {
+        (response) => {
+          // Handle completion
           setState(prev => ({
             ...prev,
             isStreaming: false,
-            messages: prev.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? { 
-                    ...msg, 
-                    content: fullResponse || response.response,
-                    sources: response.sources || []
-                  }
-                : msg
-            ),
           }));
         },
-        // onError callback
-        (error: string) => {
+        (error) => {
+          // Handle error
           setState(prev => ({
             ...prev,
             isStreaming: false,
-            error,
-            messages: prev.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: 'Sorry, I encountered an error. Please try again.' }
-                : msg
-            ),
+            error: error,
           }));
-        }
+        },
+        token
       );
 
     } catch (error) {
@@ -183,14 +185,9 @@ export function useChat(): UseChatReturn {
         ...prev,
         isStreaming: false,
         error: error instanceof Error ? error.message : 'Streaming failed',
-        messages: prev.messages.map(msg =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: 'Sorry, I encountered an error. Please try again.' }
-            : msg
-        ),
       }));
     }
-  }, [state.messages, state.selectedSources, state.isStreaming]);
+  }, [state.messages, state.selectedSources, state.isStreaming, getTokenWithFallback]);
 
   const setSelectedSources = useCallback((sources: string[]) => {
     setState(prev => ({ ...prev, selectedSources: sources }));

@@ -24,6 +24,35 @@ class S3Service:
             self.s3_client = None
         self.bucket_name = os.getenv('AWS_S3_BUCKET_NAME')
 
+    async def upload_file(self, file_key: str, file_content: bytes, content_type: str = None) -> bool:
+        """
+        Upload a file to S3
+        """
+        try:
+            if not self.s3_client:
+                raise Exception("S3 client not available")
+            
+            # Set content type if provided
+            extra_args = {}
+            if content_type:
+                extra_args['ContentType'] = content_type
+            
+            # Upload to S3
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=file_key,
+                Body=file_content,
+                **extra_args
+            )
+            
+            return True
+        except ClientError as e:
+            print(f"Error uploading file to S3: {e}")
+            return False
+        except Exception as e:
+            print(f"Unexpected error uploading file: {e}")
+            return False
+
     async def download_file(self, file_key: str) -> Optional[str]:
         """
         Download a file from S3 and return the local file path

@@ -54,7 +54,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    authToken?: string
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
@@ -64,6 +65,11 @@ class ApiClient {
         'X-Backend-Key': this.apiKey,
         ...options.headers,
       };
+
+      // Add Authorization header if auth token is provided
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
 
       const response = await fetch(url, {
         ...options,
@@ -86,18 +92,19 @@ class ApiClient {
   }
 
   // File Management
-  async getFiles(): Promise<ApiResponse<{ files: FileData[] }>> {
-    return this.request<{ files: FileData[] }>('/api/files');
+  async getFiles(authToken: string): Promise<ApiResponse<{ files: FileData[] }>> {
+    return this.request<{ files: FileData[] }>('/api/files', {}, authToken);
   }
 
-  async uploadFile(file: File): Promise<ApiResponse<UploadResponse>> {
+  async uploadFile(file: File, authToken: string): Promise<ApiResponse<UploadResponse>> {
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const url = `${this.baseUrl}/api/upload-direct`;
+      const url = `${this.baseUrl}/api/upload`;
       const headers: HeadersInit = {
         'X-Backend-Key': this.apiKey,
+        'Authorization': `Bearer ${authToken}`,
       };
 
       const response = await fetch(url, {
@@ -121,35 +128,37 @@ class ApiClient {
     }
   }
 
-  async deleteFile(fileId: string): Promise<ApiResponse<{ success: boolean }>> {
+  async deleteFile(fileId: string, authToken: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.request<{ success: boolean }>(`/api/files/${fileId}`, {
       method: 'DELETE',
-    });
+    }, authToken);
   }
 
-  async getFileStatus(fileId: string): Promise<ApiResponse<{ status: string }>> {
-    return this.request<{ status: string }>(`/api/files/${fileId}/status`);
+  async getFileStatus(fileId: string, authToken: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request<{ status: string }>(`/api/files/${fileId}/status`, {}, authToken);
   }
 
   // Chat API
-  async sendChatMessage(request: ChatRequest): Promise<ApiResponse<ChatResponse>> {
+  async sendChatMessage(request: ChatRequest, authToken: string): Promise<ApiResponse<ChatResponse>> {
     return this.request<ChatResponse>('/api/chat', {
       method: 'POST',
       body: JSON.stringify(request),
-    });
+    }, authToken);
   }
 
   async sendChatMessageStream(
     request: ChatRequest,
     onChunk: (chunk: string) => void,
     onComplete: (response: ChatResponse) => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    authToken: string
   ): Promise<void> {
     try {
       const url = `${this.baseUrl}/api/chat/stream`;
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'X-Backend-Key': this.apiKey,
+        'Authorization': `Bearer ${authToken}`,
       };
 
       const response = await fetch(url, {

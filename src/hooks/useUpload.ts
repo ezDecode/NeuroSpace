@@ -1,80 +1,92 @@
-import { useState, useCallback } from 'react';
-import { apiClient, FileData, UploadResponse } from '@/utils/apiClient';
+import { useState, useCallback, useEffect } from 'react';
+import { apiClient } from '../utils/apiClient';
+import { useAuth } from './useAuth';
 
-export interface UploadState {
+export interface FileData {
+  id: string;
+  file_name: string;
+  file_size: number;
+  status: 'pending' | 'processing' | 'processed' | 'error';
+  created_at: string;
+  file_type?: string;
+  user_id?: string;
+}
+
+interface UploadState {
+  uploadedFiles: FileData[];
   isUploading: boolean;
   progress: number;
   error: string | null;
-  uploadedFiles: FileData[];
 }
 
-export interface UseUploadReturn extends UploadState {
-  uploadFile: (file: File) => Promise<void>;
-  uploadMultipleFiles: (files: File[]) => Promise<void>;
-  clearError: () => void;
-  removeFile: (fileId: string) => Promise<void>;
-  refreshFiles: () => Promise<void>;
-}
-
-export function useUpload(): UseUploadReturn {
+export function useUpload() {
   const [state, setState] = useState<UploadState>({
+    uploadedFiles: [],
     isUploading: false,
     progress: 0,
     error: null,
-    uploadedFiles: [],
   });
 
+  const { getTokenWithFallback } = useAuth();
+
+  // Load existing files on mount
+  useEffect(() => {
+    refreshFiles();
+  }, []);
+
   const uploadFile = useCallback(async (file: File) => {
-    setState(prev => ({
-      ...prev,
-      isUploading: true,
-      progress: 0,
-      error: null,
-    }));
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
 
     try {
-      // Simulate progress for better UX
-      const progressInterval = setInterval(() => {
-        setState(prev => ({
-          ...prev,
-          progress: Math.min(prev.progress + Math.random() * 20, 90),
-        }));
-      }, 200);
-
-      const response = await apiClient.uploadFile(file);
+      const response = await apiClient.uploadFile(file, token);
       
-      clearInterval(progressInterval);
-
       if (response.error) {
         throw new Error(response.error);
       }
 
+      // Add to local state
+      const newFile: FileData = {
+        id: response.data!.file_id,
+        file_name: file.name,
+        file_size: file.size,
+        status: response.data!.status,
+        created_at: new Date().toISOString(),
+        file_type: file.type,
+      };
+
       setState(prev => ({
         ...prev,
-        isUploading: false,
-        progress: 100,
+        uploadedFiles: [...prev.uploadedFiles, newFile],
         error: null,
       }));
 
-      // Refresh the files list
-      await refreshFiles();
-
-      // Reset progress after a delay
-      setTimeout(() => {
-        setState(prev => ({ ...prev, progress: 0 }));
-      }, 1000);
-
+      return response.data;
     } catch (error) {
       setState(prev => ({
         ...prev,
-        isUploading: false,
-        progress: 0,
         error: error instanceof Error ? error.message : 'Upload failed',
       }));
+      throw error;
     }
-  }, []);
+  }, [getTokenWithFallback]);
 
   const uploadMultipleFiles = useCallback(async (files: File[]) => {
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
+
     setState(prev => ({
       ...prev,
       isUploading: true,
@@ -116,11 +128,20 @@ export function useUpload(): UseUploadReturn {
         error: error instanceof Error ? error.message : 'Upload failed',
       }));
     }
-  }, [uploadFile]);
+  }, [uploadFile, getTokenWithFallback]);
 
   const removeFile = useCallback(async (fileId: string) => {
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
+
     try {
-      const response = await apiClient.deleteFile(fileId);
+      const response = await apiClient.deleteFile(fileId, token);
       
       if (response.error) {
         throw new Error(response.error);
@@ -138,11 +159,20 @@ export function useUpload(): UseUploadReturn {
         error: error instanceof Error ? error.message : 'Failed to delete file',
       }));
     }
-  }, []);
+  }, [getTokenWithFallback]);
 
   const refreshFiles = useCallback(async () => {
+    const token = await getTokenWithFallback();
+    if (!token) {
+      setState(prev => ({
+        ...prev,
+        error: 'Authentication required. Please sign in.',
+      }));
+      return;
+    }
+
     try {
-      const response = await apiClient.getFiles();
+      const response = await apiClient.getFiles(token);
       
       if (response.error) {
         throw new Error(response.error);
@@ -160,7 +190,7 @@ export function useUpload(): UseUploadReturn {
         error: error instanceof Error ? error.message : 'Failed to fetch files',
       }));
     }
-  }, []);
+  }, [getTokenWithFallback]);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));

@@ -1,12 +1,61 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List
 import os
 from app.models.file import FileUploadRequest
 from app.deps import get_verified_user
 from app.services.supabase_service import SupabaseService
+from app.services.s3_service import S3Service
+import uuid
 
 router = APIRouter()
 supabase_service = SupabaseService()
+s3_service = S3Service()
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: str = Depends(get_verified_user)
+):
+    """
+    Upload a file to S3 and create a file record
+    """
+    try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+        
+        # Generate unique file key
+        file_extension = os.path.splitext(file.filename)[1]
+        file_key = f"uploads/{current_user}/{uuid.uuid4()}{file_extension}"
+        
+        # Upload to S3
+        file_content = await file.read()
+        await s3_service.upload_file(file_key, file_content, file.content_type)
+        
+        # Create file record in database
+        file_id = await supabase_service.create_file_record({
+            'file_key': file_key,
+            'file_name': file.filename,
+            'user_id': current_user,
+            'file_size': len(file_content),
+            'content_type': file.content_type or 'application/octet-stream',
+            'status': 'uploaded'
+        })
+        
+        if not file_id:
+            raise HTTPException(status_code=500, detail="Failed to create file record")
+        
+        return {
+            "file_id": str(file_id),
+            "status": "uploaded",
+            "message": "File uploaded successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in upload_file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @router.get("/")
 async def list_files(current_user: str = Depends(get_verified_user)):
@@ -182,9 +231,6 @@ async def fix_file_sizes(current_user: str = Depends(get_verified_user)):
     Fix file sizes for files that have incorrect size (development/admin only)
     """
     try:
-        from app.services.s3_service import S3Service
-        s3_service = S3Service()
-        
         # Only allow in development environment
         if os.getenv('DEBUG') != 'true':
             raise HTTPException(status_code=403, detail="This endpoint is only available in development mode")
