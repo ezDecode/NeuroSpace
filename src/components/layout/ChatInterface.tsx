@@ -348,9 +348,11 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
                 endAdornment: (
                   <div className="flex items-center space-x-1">
                     <Tooltip title="Attach file">
-                      <IconButton size="small" disabled>
-                        <AttachFileIcon fontSize="small" />
-                      </IconButton>
+                      <span>
+                        <IconButton size="small" disabled>
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </div>
                 ),

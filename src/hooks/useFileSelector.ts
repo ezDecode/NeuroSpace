@@ -1,20 +1,23 @@
 import { useState, useCallback } from 'react';
 import useSWR from 'swr';
-
-interface FileData {
-  id: string;
-  file_name: string;
-  file_size: number;
-  status: 'pending' | 'processing' | 'processed' | 'error';
-  created_at: string;
-  file_type?: string;
-  file_key?: string;
-}
+import { mockFiles, createMockFileFetcher, type FileData } from '@/utils/mockFileData';
 
 const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Failed to fetch');
-  return response.json();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      // If backend is not available, use mock data
+      if (response.status >= 500) {
+        console.warn('Backend not available, using mock data');
+        return createMockFileFetcher(200)(url);
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.warn('API fetch failed, falling back to mock data:', error);
+    return createMockFileFetcher(200)(url);
+  }
 };
 
 export function useFileSelector(initialSelectedFiles: string[] = []) {

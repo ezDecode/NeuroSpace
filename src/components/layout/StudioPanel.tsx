@@ -116,9 +116,11 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
           </Typography>
           <div className="flex items-center space-x-1">
             <Tooltip title="Share">
-              <IconButton size="small" disabled={!hasContent}>
-                <ShareIcon fontSize="small" />
-              </IconButton>
+              <span>
+                <IconButton size="small" disabled={!hasContent}>
+                  <ShareIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Settings">
               <IconButton size="small">

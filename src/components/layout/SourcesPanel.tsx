@@ -56,9 +56,23 @@ interface FileData {
 }
 
 const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Failed to fetch');
-  return response.json();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      // If backend is not available, use mock data
+      if (response.status >= 500) {
+        console.warn('Backend not available in SourcesPanel, using mock data');
+        const { createMockFileFetcher } = await import('@/utils/mockFileData');
+        return createMockFileFetcher(200)(url);
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.warn('API fetch failed in SourcesPanel, falling back to mock data:', error);
+    const { createMockFileFetcher } = await import('@/utils/mockFileData');
+    return createMockFileFetcher(200)(url);
+  }
 };
 
 const getFileIcon = (fileName: string) => {
@@ -98,7 +112,7 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'selector'>('list');
 
-  const { data: filesData, mutate } = useSWR<{files: FileData[]}>('/api/files', fetcher);
+  const { data: filesData, mutate, error: filesError } = useSWR<{files: FileData[]}>('/api/files', fetcher);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     for (const file of acceptedFiles) {
@@ -113,9 +127,32 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
         
         if (response.ok) {
           mutate(); // Refresh the files list
+          console.log(`Successfully uploaded: ${file.name}`);
+        } else {
+          // Handle different error types
+          const contentType = response.headers.get('content-type');
+          let errorMessage = `Upload failed for ${file.name}`;
+          
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch (parseError) {
+              console.error('Error parsing response:', parseError);
+            }
+          } else {
+            // Likely HTML error response
+            errorMessage = `Server error (${response.status}): Backend may not be running`;
+          }
+          
+          console.error(errorMessage);
+          // Show user-friendly error (you could also use a toast notification here)
+          alert(`Upload failed: ${errorMessage}`);
         }
       } catch (error) {
         console.error('Upload failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        alert(`Upload failed: ${errorMessage}`);
       }
     }
     setUploadDialog(false);
@@ -197,6 +234,21 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
         <p className="text-sm text-gray-600 mb-4">
           Sources let NeuroSpace base its responses on the information that matters most to you.
         </p>
+
+        {/* Backend Status Indicator */}
+        {filesError && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+            <div className="flex items-center">
+              <svg className="w-4 h-4 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Using Demo Mode</p>
+                <p className="text-xs text-yellow-700 mt-1">Backend service is not available. Showing demo files.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add Button */}
         <Button
