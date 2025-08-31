@@ -155,12 +155,13 @@ if FASTAPI_AVAILABLE:
     )
 
     # Import routes
-    from app.routes import files, processing, query
+    from app.routes import files, processing, query, chat
 
     # Include routers
     app.include_router(files.router, prefix="/api/files", tags=["files"])
     app.include_router(processing.router, prefix="/api/processing", tags=["processing"])
     app.include_router(query.router, prefix="/api/query", tags=["query"])
+    app.include_router(chat.router, prefix="/api", tags=["chat"])
 
     @app.get("/")
     async def root():

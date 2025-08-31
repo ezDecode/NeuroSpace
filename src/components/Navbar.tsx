@@ -26,10 +26,10 @@ export default function Navbar() {
             </MaybeSignedOut>
             <MaybeSignedIn>
               <Link
-                href="/dashboard"
+                href="/notebook"
                 className="rounded-xl bg-white text-black px-4 py-2 sm:px-6 sm:py-3 font-semibold text-sm sm:text-base transition-colors hover:bg-gray-100"
               >
-                Dashboard
+                Notebook
               </Link>
             </MaybeSignedIn>
           </div>

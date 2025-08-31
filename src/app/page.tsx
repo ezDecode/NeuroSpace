@@ -49,7 +49,7 @@ export default function Home() {
             </SignUpTrigger>
           </MaybeSignedOut>
           <MaybeSignedIn>
-            <GlassButton href="/dashboard" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Open dashboard</GlassButton>
+            <GlassButton href="/notebook" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Open Notebook</GlassButton>
           </MaybeSignedIn>
           <GlassButton href="#how" className="w-full sm:w-auto bg-transparent border border-white/20 text-white hover:bg-white/5 text-lg sm:text-xl px-10 py-4 min-h-[56px]">
             How it works
@@ -231,7 +231,7 @@ export default function Home() {
               </SignUpTrigger>
             </MaybeSignedOut>
             <MaybeSignedIn>
-              <GlassButton href="/dashboard" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Go to dashboard</GlassButton>
+              <GlassButton href="/notebook" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Go to Notebook</GlassButton>
             </MaybeSignedIn>
           </div>
         </motion.div>
