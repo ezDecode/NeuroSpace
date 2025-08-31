@@ -44,6 +44,9 @@ async def create_file(file_data: FileUploadRequest, current_user: str = Depends(
     Create a new file record in the database
     """
     try:
+        print(f"Creating file record for user: {current_user}")
+        print(f"File data: {file_data}")
+        
         # Use the current_user from authentication
         user_id = current_user
         
@@ -58,12 +61,26 @@ async def create_file(file_data: FileUploadRequest, current_user: str = Depends(
         })
         
         if file_id:
+            print(f"File created successfully with ID: {file_id}")
             return {"id": str(file_id), "message": "File created successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to create file record")
+            print("Failed to create file record - no ID returned")
+            raise HTTPException(status_code=500, detail="Failed to create file record - database operation failed")
             
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create file: {str(e)}")
+        error_msg = f"Failed to create file: {str(e)}"
+        print(f"Error in create_file route: {error_msg}")
+        print(f"Error type: {type(e)}")
+        print(f"Error details: {str(e)}")
+        
+        # Check if it's a database schema issue
+        if "embedding_count" in str(e) or "PGRST204" in str(e):
+            error_msg = "Database schema issue detected. Please run the schema fix script in Supabase SQL Editor."
+            print("DATABASE SCHEMA ISSUE DETECTED - RUN THE FIX SCRIPT!")
+        
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/{file_id}")
 async def get_file(file_id: str, current_user: str = Depends(get_verified_user)):
@@ -90,6 +107,8 @@ async def get_file(file_id: str, current_user: str = Depends(get_verified_user))
             "content_type": file_data.get('content_type', ''),
             "status": file_data.get('status', 'uploaded'),
             "chunks_count": file_data.get('chunks_count', 0),
+            "embedding_count": file_data.get('embedding_count', 0),
+            "last_error": file_data.get('last_error', None),
             "created_at": file_data.get('created_at', ''),
             "processed_at": file_data.get('processed_at', ''),
         }

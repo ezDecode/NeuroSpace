@@ -3,38 +3,19 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Audiotrack as AudiotrackIcon,
-  VideoLibrary as VideoLibraryIcon,
-  AccountTree as AccountTreeIcon,
-  Assessment as AssessmentIcon,
-  Lightbulb as LightbulbIcon,
-  Download as DownloadIcon,
-  Share as ShareIcon,
-  Settings as SettingsIcon,
-  ExpandMore as ExpandMoreIcon,
-  PlayArrow as PlayArrowIcon,
-  Pause as PauseIcon,
-  VolumeUp as VolumeUpIcon
-} from '@mui/icons-material';
-import { 
-  Typography, 
-  Card, 
-  CardContent, 
-  Button, 
-  IconButton, 
-  Tooltip, 
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Chip,
-  LinearProgress,
-  Slider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider
-} from '@mui/material';
+  MusicalNoteIcon,
+  VideoCameraIcon,
+  MapIcon,
+  ChartBarIcon,
+  LightBulbIcon,
+  ArrowDownTrayIcon,
+  ShareIcon,
+  Cog6ToothIcon,
+  ChevronDownIcon,
+  PlayIcon,
+  PauseIcon,
+  SpeakerWaveIcon
+} from '@heroicons/react/24/outline';
 
 interface StudioPanelProps {
   chatHistory: any[];
@@ -53,28 +34,28 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
     {
       id: 'audio',
       title: 'Audio Overview',
-      icon: <AudiotrackIcon />,
+      icon: <MusicalNoteIcon className="w-6 h-6" />,
       description: 'Listen to an AI-generated overview',
       enabled: hasContent
     },
     {
       id: 'video',
       title: 'Video Overview', 
-      icon: <VideoLibraryIcon />,
+      icon: <VideoCameraIcon className="w-6 h-6" />,
       description: 'Watch a video summary',
       enabled: false
     },
     {
       id: 'mindmap',
       title: 'Mind Map',
-      icon: <AccountTreeIcon />,
+      icon: <MapIcon className="w-6 h-6" />,
       description: 'Visualize key concepts',
       enabled: hasContent
     },
     {
       id: 'reports',
       title: 'Reports',
-      icon: <AssessmentIcon />,
+      icon: <ChartBarIcon className="w-6 h-6" />,
       description: 'Generate detailed insights',
       enabled: hasContent
     }
@@ -111,25 +92,25 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between">
-          <Typography variant="h6" className="font-medium">
+          <h2 className="text-lg font-medium text-gray-900">
             Studio
-          </Typography>
+          </h2>
           <div className="flex items-center space-x-1">
-            <Tooltip title="Share">
-              <IconButton size="small" disabled={!hasContent}>
-                <ShareIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Settings">
-              <IconButton size="small">
-                <SettingsIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <button 
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hasContent}
+              title="Share"
+            >
+              <ShareIcon className="w-5 h-5" />
+            </button>
+            <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors" title="Settings">
+              <Cog6ToothIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
-        <Typography variant="body2" color="textSecondary" className="mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           Studio output will be saved here. After adding sources, click to add Audio Overview, Study Guide, Mind Map, and more!
-        </Typography>
+        </p>
       </div>
 
       {/* Content */}
@@ -137,13 +118,13 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
         {!hasContent ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-xs">
-              <LightbulbIcon className="text-gray-300 mb-4" style={{ fontSize: 64 }} />
-              <Typography variant="h6" className="text-gray-600 mb-2">
+              <LightBulbIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-600 mb-2">
                 Add sources to get started
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
+              </h3>
+              <p className="text-sm text-gray-500">
                 Upload documents and start a conversation to unlock studio features.
-              </Typography>
+              </p>
             </div>
           </div>
         ) : (
@@ -157,37 +138,37 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card 
-                    className={`cursor-pointer transition-all duration-200 ${
+                  <div 
+                    className={`cursor-pointer transition-all duration-200 rounded-lg border ${
                       section.enabled 
-                        ? 'hover:shadow-md border-blue-200' 
-                        : 'opacity-50 cursor-not-allowed'
+                        ? 'hover:shadow-md border-blue-200 bg-white' 
+                        : 'opacity-50 cursor-not-allowed bg-gray-100'
                     } ${activeSection === section.id ? 'ring-2 ring-blue-500' : ''}`}
                     onClick={() => section.enabled && setActiveSection(section.id)}
                   >
-                    <CardContent className="p-4">
+                    <div className="p-4">
                       <div className="flex items-center space-x-3">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          section.enabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'
+                          section.enabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'
                         }`}>
                           {section.icon}
                         </div>
                         <div className="flex-1">
-                          <Typography variant="subtitle2" className="font-medium">
+                          <h4 className="text-sm font-medium text-gray-900">
                             {section.title}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
+                          </h4>
+                          <p className="text-xs text-gray-600">
                             {section.description}
-                          </Typography>
+                          </p>
                         </div>
                         {section.enabled && (
-                          <Button size="small" variant="outlined">
+                          <button className="px-3 py-1 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
                             Generate
-                          </Button>
+                          </button>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -199,76 +180,77 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <Typography variant="h6">Audio Overview</Typography>
-                      <Chip label="Generated" size="small" color="success" />
-                    </div>
-                    
-                    {/* Audio Player */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-4">
-                        <IconButton 
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="bg-blue-600 text-white hover:bg-blue-700"
-                        >
-                          {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-                        </IconButton>
-                        
-                        <div className="flex-1">
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={playbackPosition} 
-                            className="h-2 rounded"
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>2:15</span>
-                            <span>7:30</span>
-                          </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Audio Overview</h3>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                      Generated
+                    </span>
+                  </div>
+                  
+                  {/* Audio Player */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <button 
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className="w-10 h-10 bg-blue-600 text-white hover:bg-blue-700 rounded-full flex items-center justify-center transition-colors"
+                      >
+                        {isPlaying ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5" />}
+                      </button>
+                      
+                      <div className="flex-1">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${playbackPosition}%` }}
+                          ></div>
                         </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <VolumeUpIcon className="text-gray-500" fontSize="small" />
-                          <Slider
-                            value={volume}
-                            onChange={(_, value) => setVolume(value as number)}
-                            size="small"
-                            style={{ width: 60 }}
-                          />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>2:15</span>
+                          <span>7:30</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        <Button size="small" startIcon={<DownloadIcon />}>
-                          Download
-                        </Button>
-                        <Button size="small" startIcon={<ShareIcon />}>
-                          Share
-                        </Button>
+                        <SpeakerWaveIcon className="w-5 h-5 text-gray-500" />
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={volume}
+                          onChange={(e) => setVolume(Number(e.target.value))}
+                          className="w-16 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    
+                    <div className="flex items-center space-x-2">
+                      <button className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                        <ArrowDownTrayIcon className="w-4 h-4" />
+                        <span>Download</span>
+                      </button>
+                      <button className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                        <ShareIcon className="w-4 h-4" />
+                        <span>Share</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Topics Covered */}
-                <Card>
-                  <CardContent className="p-4">
-                    <Typography variant="h6" className="mb-3">Topics Covered</Typography>
-                    <List dense>
-                      {mockTopics.map((topic, index) => (
-                        <ListItem key={index} className="px-0">
-                          <ListItemIcon>
-                            <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">
-                              {index + 1}
-                            </div>
-                          </ListItemIcon>
-                          <ListItemText primary={topic} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </CardContent>
-                </Card>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Topics Covered</h3>
+                  <div className="space-y-2">
+                    {mockTopics.map((topic, index) => (
+                      <div key={index} className="flex items-center space-x-3">
+                        <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">
+                          {index + 1}
+                        </div>
+                        <span className="text-sm text-gray-700">{topic}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -278,25 +260,23 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <Typography variant="h6">Mind Map</Typography>
-                      <Button size="small" variant="outlined">
-                        Generate
-                      </Button>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Mind Map</h3>
+                    <button className="px-3 py-1 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                      Generate
+                    </button>
+                  </div>
+                  
+                  <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <div className="text-center">
+                      <MapIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">
+                        Mind map will appear here
+                      </p>
                     </div>
-                    
-                    <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                      <div className="text-center">
-                        <AccountTreeIcon className="text-gray-400 mb-2" style={{ fontSize: 48 }} />
-                        <Typography variant="body2" color="textSecondary">
-                          Mind map will appear here
-                        </Typography>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -306,91 +286,85 @@ export default function StudioPanel({ chatHistory, selectedSources }: StudioPane
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <Typography variant="h6">Insights Report</Typography>
-                      <Button size="small" variant="outlined">
-                        Generate Full Report
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {mockInsights.map((insight, index) => (
-                        <div key={index} className="border-l-4 border-blue-500 pl-4">
-                          <Typography variant="subtitle2" className="font-medium mb-1">
-                            {insight.title}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary" className="mb-2">
-                            {insight.content}
-                          </Typography>
-                          <div className="flex items-center space-x-2">
-                            <Typography variant="caption" color="textSecondary">
-                              Confidence:
-                            </Typography>
-                            <LinearProgress 
-                              variant="determinate" 
-                              value={insight.confidence} 
-                              className="flex-1 h-1"
-                            />
-                            <Typography variant="caption" color="textSecondary">
-                              {insight.confidence}%
-                            </Typography>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Insights Report</h3>
+                    <button className="px-3 py-1 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                      Generate Full Report
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {mockInsights.map((insight, index) => (
+                      <div key={index} className="border-l-4 border-blue-500 pl-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">
+                          {insight.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {insight.content}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">
+                            Confidence:
+                          </span>
+                          <div className="flex-1 bg-gray-200 rounded-full h-1">
+                            <div 
+                              className="bg-blue-600 h-1 rounded-full transition-all duration-300"
+                              style={{ width: `${insight.confidence}%` }}
+                            ></div>
                           </div>
+                          <span className="text-xs text-gray-500">
+                            {insight.confidence}%
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Export Options */}
-                <Card>
-                  <CardContent className="p-4">
-                    <Typography variant="h6" className="mb-3">Export Options</Typography>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outlined" size="small" startIcon={<DownloadIcon />}>
-                        PDF Report
-                      </Button>
-                      <Button variant="outlined" size="small" startIcon={<DownloadIcon />}>
-                        Word Doc
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Export Options</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button className="flex items-center justify-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                      <ArrowDownTrayIcon className="w-4 h-4" />
+                      <span>PDF Report</span>
+                    </button>
+                    <button className="flex items-center justify-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                      <ArrowDownTrayIcon className="w-4 h-4" />
+                      <span>Word Doc</span>
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
 
             {/* Quick Actions */}
-            <Divider />
-            <div className="space-y-2">
-              <Typography variant="subtitle2" className="font-medium text-gray-700">
-                Quick Actions
-              </Typography>
-              <div className="grid grid-cols-1 gap-2">
-                <Button 
-                  variant="text" 
-                  size="small" 
-                  className="justify-start"
-                  startIcon={<LightbulbIcon />}
-                >
-                  Generate study guide
-                </Button>
-                <Button 
-                  variant="text" 
-                  size="small" 
-                  className="justify-start"
-                  startIcon={<AssessmentIcon />}
-                >
-                  Create quiz
-                </Button>
-                <Button 
-                  variant="text" 
-                  size="small" 
-                  className="justify-start"
-                  startIcon={<ShareIcon />}
-                >
-                  Share findings
-                </Button>
+            <div className="border-t border-gray-200 pt-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">
+                  Quick Actions
+                </h4>
+                <div className="space-y-2">
+                  <button 
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left"
+                  >
+                    <LightBulbIcon className="w-4 h-4" />
+                    <span>Generate study guide</span>
+                  </button>
+                  <button 
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left"
+                  >
+                    <ChartBarIcon className="w-4 h-4" />
+                    <span>Create quiz</span>
+                  </button>
+                  <button 
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left"
+                  >
+                    <ShareIcon className="w-4 h-4" />
+                    <span>Share findings</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -3,13 +3,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Menu as MenuIcon, 
-  Settings as SettingsIcon, 
-  Share as ShareIcon,
-  MoreVert as MoreVertIcon,
-  Notifications as NotificationsIcon
-} from '@mui/icons-material';
-import { IconButton, Tooltip } from '@mui/material';
+  Bars3Icon, 
+  Cog6ToothIcon, 
+  ShareIcon,
+  EllipsisVerticalIcon,
+  BellIcon
+} from '@heroicons/react/24/outline';
 
 export default function NotebookHeader() {
   return (
@@ -45,29 +44,33 @@ export default function NotebookHeader() {
 
       {/* Right Section */}
       <div className="flex items-center space-x-2">
-        <Tooltip title="Notifications">
-          <IconButton size="small" className="text-gray-600 hover:text-gray-900">
-            <NotificationsIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <button 
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Notifications"
+        >
+          <BellIcon className="w-5 h-5" />
+        </button>
         
-        <Tooltip title="Share">
-          <IconButton size="small" className="text-gray-600 hover:text-gray-900">
-            <ShareIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <button 
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Share"
+        >
+          <ShareIcon className="w-5 h-5" />
+        </button>
 
-        <Tooltip title="Settings">
-          <IconButton size="small" className="text-gray-600 hover:text-gray-900">
-            <SettingsIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <button 
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Settings"
+        >
+          <Cog6ToothIcon className="w-5 h-5" />
+        </button>
 
-        <Tooltip title="More options">
-          <IconButton size="small" className="text-gray-600 hover:text-gray-900">
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <button 
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          title="More options"
+        >
+          <EllipsisVerticalIcon className="w-5 h-5" />
+        </button>
       </div>
     </motion.header>
   );

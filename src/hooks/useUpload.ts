@@ -1,61 +1,177 @@
-import { useState } from 'react';
-import { useAuth } from './useAuth';
-import { apiClient } from '@/utils/apiClient';
+import { useState, useCallback } from 'react';
+import { apiClient, FileData, UploadResponse } from '@/utils/apiClient';
 
-export type UploadStatus = 'idle' | 'signing' | 'uploading' | 'processing' | 'done' | 'error';
+export interface UploadState {
+  isUploading: boolean;
+  progress: number;
+  error: string | null;
+  uploadedFiles: FileData[];
+}
 
-type SignResponse = { url: string; fileKey: string; fileName: string };
+export interface UseUploadReturn extends UploadState {
+  uploadFile: (file: File) => Promise<void>;
+  uploadMultipleFiles: (files: File[]) => Promise<void>;
+  clearError: () => void;
+  removeFile: (fileId: string) => Promise<void>;
+  refreshFiles: () => Promise<void>;
+}
 
-type ProcessResponse = { success: boolean };
+export function useUpload(): UseUploadReturn {
+  const [state, setState] = useState<UploadState>({
+    isUploading: false,
+    progress: 0,
+    error: null,
+    uploadedFiles: [],
+  });
 
-export function useUpload() {
-  const { getAuthHeader } = useAuth();
-  const [status, setStatus] = useState<UploadStatus>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const uploadFile = useCallback(async (file: File) => {
+    setState(prev => ({
+      ...prev,
+      isUploading: true,
+      progress: 0,
+      error: null,
+    }));
 
-  async function uploadFile(file: File) {
     try {
-      setError(null);
-      setStatus('signing');
-      const headers = { 'Content-Type': 'application/json', ...(await getAuthHeader()) };
-      const { data: signData } = await apiClient.post<SignResponse>(
-        '/api/upload',
-        {
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-        },
-        headers,
-      );
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setState(prev => ({
+          ...prev,
+          progress: Math.min(prev.progress + Math.random() * 20, 90),
+        }));
+      }, 200);
 
-      setStatus('uploading');
-      await fetch(signData.url, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
+      const response = await apiClient.uploadFile(file);
+      
+      clearInterval(progressInterval);
 
-      setStatus('processing');
-      await apiClient.post<ProcessResponse>(
-        '/api/process',
-        { 
-          fileKey: signData.fileKey, 
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type
-        },
-        headers,
-      );
+      if (response.error) {
+        throw new Error(response.error);
+      }
 
-      setStatus('done');
-      return { fileKey: signData.fileKey };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Upload failed';
-      setStatus('error');
-      setError(msg);
-      throw e;
+      setState(prev => ({
+        ...prev,
+        isUploading: false,
+        progress: 100,
+        error: null,
+      }));
+
+      // Refresh the files list
+      await refreshFiles();
+
+      // Reset progress after a delay
+      setTimeout(() => {
+        setState(prev => ({ ...prev, progress: 0 }));
+      }, 1000);
+
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        isUploading: false,
+        progress: 0,
+        error: error instanceof Error ? error.message : 'Upload failed',
+      }));
     }
-  }
+  }, []);
 
-  return { status, error, uploadFile };
+  const uploadMultipleFiles = useCallback(async (files: File[]) => {
+    setState(prev => ({
+      ...prev,
+      isUploading: true,
+      progress: 0,
+      error: null,
+    }));
+
+    try {
+      const totalFiles = files.length;
+      let completedFiles = 0;
+
+      for (const file of files) {
+        await uploadFile(file);
+        completedFiles++;
+        
+        // Update progress based on completed files
+        setState(prev => ({
+          ...prev,
+          progress: (completedFiles / totalFiles) * 100,
+        }));
+      }
+
+      setState(prev => ({
+        ...prev,
+        isUploading: false,
+        progress: 100,
+      }));
+
+      // Reset progress after a delay
+      setTimeout(() => {
+        setState(prev => ({ ...prev, progress: 0 }));
+      }, 1000);
+
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        isUploading: false,
+        progress: 0,
+        error: error instanceof Error ? error.message : 'Upload failed',
+      }));
+    }
+  }, [uploadFile]);
+
+  const removeFile = useCallback(async (fileId: string) => {
+    try {
+      const response = await apiClient.deleteFile(fileId);
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Remove from local state
+      setState(prev => ({
+        ...prev,
+        uploadedFiles: prev.uploadedFiles.filter(file => file.id !== fileId),
+      }));
+
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to delete file',
+      }));
+    }
+  }, []);
+
+  const refreshFiles = useCallback(async () => {
+    try {
+      const response = await apiClient.getFiles();
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      setState(prev => ({
+        ...prev,
+        uploadedFiles: response.data?.files || [],
+        error: null,
+      }));
+
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to fetch files',
+      }));
+    }
+  }, []);
+
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
+
+  return {
+    ...state,
+    uploadFile,
+    uploadMultipleFiles,
+    removeFile,
+    refreshFiles,
+    clearError,
+  };
 }

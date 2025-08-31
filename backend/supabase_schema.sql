@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS files (
     content_type TEXT DEFAULT '',
     status TEXT DEFAULT 'uploaded',
     chunks_count INTEGER DEFAULT 0,
+    embedding_count INTEGER DEFAULT 0,
+    last_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     processed_at TIMESTAMP WITH TIME ZONE
 );
@@ -68,6 +70,8 @@ RETURNS TABLE (
     content_type TEXT,
     status TEXT,
     chunks_count INTEGER,
+    embedding_count INTEGER,
+    last_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE,
     processed_at TIMESTAMP WITH TIME ZONE
 ) AS $$
@@ -81,6 +85,8 @@ BEGIN
         f.content_type,
         f.status,
         f.chunks_count,
+        f.embedding_count,
+        f.last_error,
         f.created_at,
         f.processed_at
     FROM files f

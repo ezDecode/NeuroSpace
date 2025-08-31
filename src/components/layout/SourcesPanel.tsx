@@ -1,89 +1,54 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Add as AddIcon, 
-  UploadFile as UploadFileIcon, 
-  Description as DescriptionIcon, 
-  PictureAsPdf as PictureAsPdfIcon,
-  InsertDriveFile as InsertDriveFileIcon,
-  Search as SearchIcon,
-  MoreVert as MoreVertIcon,
-  Link as LinkIcon,
-  Folder as FolderIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon
-} from '@mui/icons-material';
-import { 
-  IconButton, 
-  Tooltip, 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions,
-  TextField,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  ListItemSecondaryAction,
-  Checkbox,
-  Menu,
-  MenuItem,
-  Typography,
-  Chip
-} from '@mui/material';
+  PlusIcon,
+  DocumentIcon,
+  DocumentTextIcon,
+  DocumentDuplicateIcon,
+  MagnifyingGlassIcon,
+  EllipsisVerticalIcon,
+  LinkIcon,
+  FolderIcon,
+  TrashIcon,
+  PencilIcon
+} from '@heroicons/react/24/outline';
 import { useDropzone } from 'react-dropzone';
-import useSWR from 'swr';
+import { useUpload } from '@/hooks/useUpload';
+import { FileData } from '@/utils/apiClient';
 
 interface SourcesPanelProps {
   selectedSources: string[];
   onSourceSelect: (sources: string[]) => void;
 }
 
-interface FileData {
-  id: string;
-  file_name: string;
-  file_size: number;
-  status: 'pending' | 'processing' | 'processed' | 'error';
-  created_at: string;
-  file_type?: string;
-}
-
-const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Failed to fetch');
-  return response.json();
-};
-
 const getFileIcon = (fileName: string) => {
   const extension = fileName.split('.').pop()?.toLowerCase();
   switch (extension) {
     case 'pdf':
-      return <PictureAsPdfIcon className="text-red-500" />;
+      return <DocumentIcon className="w-5 h-5 text-red-500" />;
     case 'doc':
     case 'docx':
-      return <DescriptionIcon className="text-blue-500" />;
+      return <DocumentTextIcon className="w-5 h-5 text-blue-500" />;
     case 'txt':
     case 'md':
-      return <InsertDriveFileIcon className="text-gray-500" />;
+      return <DocumentDuplicateIcon className="w-5 h-5 text-gray-500" />;
     default:
-      return <InsertDriveFileIcon className="text-gray-500" />;
+      return <DocumentDuplicateIcon className="w-5 h-5 text-gray-500" />;
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'processed':
-      return 'success';
+      return 'bg-green-100 text-green-800 border-green-200';
     case 'processing':
-      return 'warning';
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'error':
-      return 'error';
+      return 'bg-red-100 text-red-800 border-red-200';
     default:
-      return 'default';
+      return 'bg-gray-100 text-gray-800 border-gray-200';
   }
 };
 
@@ -91,31 +56,30 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
   const [uploadDialog, setUploadDialog] = useState(false);
   const [linkDialog, setLinkDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileData | null }>({ x: 0, y: 0, file: null });
 
-  const { data: filesData, mutate } = useSWR<{files: FileData[]}>('/api/files', fetcher);
+  const { 
+    uploadedFiles, 
+    isUploading, 
+    progress, 
+    error, 
+    uploadFile, 
+    removeFile, 
+    refreshFiles, 
+    clearError 
+  } = useUpload();
+
+  // Load files on component mount
+  useEffect(() => {
+    refreshFiles();
+  }, [refreshFiles]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     for (const file of acceptedFiles) {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      try {
-        const response = await fetch('/api/upload-direct', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (response.ok) {
-          mutate(); // Refresh the files list
-        }
-      } catch (error) {
-        console.error('Upload failed:', error);
-      }
+      await uploadFile(file);
     }
     setUploadDialog(false);
-  }, [mutate]);
+  }, [uploadFile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -129,9 +93,9 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
     multiple: true
   });
 
-  const filteredFiles = filesData?.files?.filter(file =>
+  const filteredFiles = uploadedFiles.filter(file =>
     file.file_name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  );
 
   const handleSourceToggle = (fileId: string) => {
     const newSelected = selectedSources.includes(fileId)
@@ -140,43 +104,34 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
     onSourceSelect(newSelected);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, file: FileData) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedFile(file);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedFile(null);
+  const handleContextMenu = (event: React.MouseEvent, file: FileData) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, file });
   };
 
   const handleDeleteFile = async (fileId: string) => {
     try {
-      const response = await fetch(`/api/files/${fileId}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        mutate(); // Refresh the files list
-        onSourceSelect(selectedSources.filter(id => id !== fileId));
-      }
+      await removeFile(fileId);
+      onSourceSelect(selectedSources.filter(id => id !== fileId));
     } catch (error) {
       console.error('Delete failed:', error);
     }
-    handleMenuClose();
+    setContextMenu({ x: 0, y: 0, file: null });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ x: 0, y: 0, file: null });
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Sources</h2>
-          <Tooltip title="Discover sources">
-            <IconButton size="small" className="text-gray-600">
-              <SearchIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+            <MagnifyingGlassIcon className="w-5 h-5" />
+          </button>
         </div>
         
         <p className="text-sm text-gray-600 mb-4">
@@ -184,182 +139,220 @@ export default function SourcesPanel({ selectedSources, onSourceSelect }: Source
         </p>
 
         {/* Add Button */}
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
+        <button
           onClick={() => setUploadDialog(true)}
-          className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
-          size="small"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
         >
-          Add
-        </Button>
+          <PlusIcon className="w-5 h-5" />
+          <span>Add</span>
+        </button>
       </div>
 
       {/* Search */}
       <div className="p-4 border-b border-gray-200">
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search sources..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: <SearchIcon className="text-gray-400 mr-2" fontSize="small" />,
-          }}
-          className="bg-white"
-        />
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search sources..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 border-b border-red-200 bg-red-50">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-700">{error}</p>
+            <button
+              onClick={clearError}
+              className="text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Progress */}
+      {isUploading && (
+        <div className="p-4 border-b border-blue-200 bg-blue-50">
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm text-blue-700">Uploading...</span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
 
       {/* Sources List */}
       <div className="flex-1 overflow-y-auto">
         {filteredFiles.length === 0 ? (
           <div className="p-8 text-center">
-            <FolderIcon className="text-gray-300 mb-4" style={{ fontSize: 48 }} />
-            <Typography variant="body2" color="textSecondary">
+            <FolderIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-sm text-gray-600 mb-2">
               Saved sources will appear here
-            </Typography>
-            <Typography variant="caption" color="textSecondary" className="block mt-2">
-              Click Add above to add PDFs, websites, text, videos, or audio files. Or import a file directly from Google Drive.
-            </Typography>
+            </p>
+            <p className="text-xs text-gray-500">
+              Click Add above to add PDFs, websites, text, videos, or audio files.
+            </p>
           </div>
         ) : (
-          <List dense>
+          <div className="divide-y divide-gray-200">
             {filteredFiles.map((file) => (
-              <ListItem
+              <div
                 key={file.id}
-                className="hover:bg-gray-50 cursor-pointer"
+                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => handleSourceToggle(file.id)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
               >
-                <ListItemIcon>
-                  <Checkbox
-                    edge="start"
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
                     checked={selectedSources.includes(file.id)}
-                    size="small"
+                    onChange={() => handleSourceToggle(file.id)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                </ListItemIcon>
-                
-                <ListItemIcon>
+                  
                   {getFileIcon(file.file_name)}
-                </ListItemIcon>
-                
-                <ListItemText
-                  primary={
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-900 truncate">
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
                         {file.file_name}
+                      </p>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(file.status)}`}>
+                        {file.status}
                       </span>
-                      <Chip
-                        label={file.status}
-                        size="small"
-                        color={getStatusColor(file.status) as any}
-                        variant="outlined"
-                      />
                     </div>
-                  }
-                  secondary={
-                    <span className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500">
                       {(file.file_size / (1024 * 1024)).toFixed(1)} MB • {new Date(file.created_at).toLocaleDateString()}
-                    </span>
-                  }
-                />
-                
-                <ListItemSecondaryAction>
-                  <IconButton 
-                    size="small" 
+                    </p>
+                  </div>
+                  
+                  <button 
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleMenuOpen(e, file);
+                      handleContextMenu(e, file);
                     }}
                   >
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
+                    <EllipsisVerticalIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             ))}
-          </List>
+          </div>
         )}
       </div>
 
       {/* Source Count */}
       {selectedSources.length > 0 && (
         <div className="p-4 border-t border-gray-200 bg-blue-50">
-          <Typography variant="caption" color="primary">
+          <p className="text-xs text-blue-700 font-medium">
             {selectedSources.length} source{selectedSources.length !== 1 ? 's' : ''} selected
-          </Typography>
+          </p>
         </div>
       )}
 
       {/* Upload Dialog */}
-      <Dialog open={uploadDialog} onClose={() => setUploadDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add sources</DialogTitle>
-        <DialogContent>
-          <div className="space-y-4 pt-2">
-            {/* Upload Section */}
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive
-                  ? 'border-blue-400 bg-blue-50'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <UploadFileIcon className="text-gray-400 mb-4" style={{ fontSize: 48 }} />
-              <Typography variant="h6" className="mb-2">
-                Upload sources
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Drag & drop or choose file to upload
-              </Typography>
-              <Typography variant="caption" color="textSecondary" className="block mt-2">
-                Supported file types: PDF, txt, Markdown, Audio (e.g. mp3)
-              </Typography>
-            </div>
+      {uploadDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Add sources</h3>
+            
+            <div className="space-y-4">
+              {/* Upload Section */}
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? 'border-blue-400 bg-blue-50'
+                    : 'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <DocumentIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-medium mb-2">
+                  Upload sources
+                </h4>
+                <p className="text-sm text-gray-600 mb-2">
+                  Drag & drop or choose file to upload
+                </p>
+                <p className="text-xs text-gray-500">
+                  Supported file types: PDF, txt, Markdown, Audio (e.g. mp3)
+                </p>
+              </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outlined"
-                startIcon={<LinkIcon />}
-                onClick={() => setLinkDialog(true)}
-                className="justify-start"
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setLinkDialog(true)}
+                  className="flex items-center justify-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <LinkIcon className="w-5 h-5" />
+                  <span>Link</span>
+                </button>
+                <button
+                  disabled
+                  className="flex items-center justify-center space-x-2 px-3 py-2 text-sm border border-gray-300 text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
+                >
+                  <FolderIcon className="w-5 h-5" />
+                  <span>Google Drive</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setUploadDialog(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                Link
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<FolderIcon />}
-                className="justify-start"
-                disabled
-              >
-                Google Drive
-              </Button>
+                Cancel
+              </button>
             </div>
           </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUploadDialog(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
+        </div>
+      )}
 
       {/* Context Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleMenuClose}>
-          <EditIcon className="mr-2" fontSize="small" />
-          Rename
-        </MenuItem>
-        <MenuItem 
-          onClick={() => selectedFile && handleDeleteFile(selectedFile.id)}
-          className="text-red-600"
+      {contextMenu.file && (
+        <div 
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <DeleteIcon className="mr-2" fontSize="small" />
-          Delete
-        </MenuItem>
-      </Menu>
+          <button
+            onClick={closeContextMenu}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+          >
+            <PencilIcon className="w-4 h-4" />
+            <span>Rename</span>
+          </button>
+          <button
+            onClick={() => handleDeleteFile(contextMenu.file!.id)}
+            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+          >
+            <TrashIcon className="w-4 h-4" />
+            <span>Delete</span>
+          </button>
+        </div>
+      )}
+
+      {/* Overlay to close context menu */}
+      {contextMenu.file && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={closeContextMenu}
+        />
+      )}
     </div>
   );
 }

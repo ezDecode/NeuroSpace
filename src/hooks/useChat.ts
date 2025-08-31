@@ -1,176 +1,223 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAuth } from './useAuth';
+import { useState, useCallback, useRef } from 'react';
+import { apiClient, ChatMessage, ChatRequest, ChatResponse } from '@/utils/apiClient';
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  references?: { file_name: string; score?: number }[];
+export interface ChatState {
+  messages: ChatMessage[];
+  isStreaming: boolean;
+  error: string | null;
+  selectedSources: string[];
 }
 
-export function useChat() {
-  const { getAuthHeader, user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'general' | 'document' | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
+export interface UseChatReturn extends ChatState {
+  sendMessage: (message: string) => Promise<void>;
+  sendMessageStream: (message: string) => Promise<void>;
+  setSelectedSources: (sources: string[]) => void;
+  clearChat: () => void;
+  clearError: () => void;
+  addMessage: (message: ChatMessage) => void;
+}
 
-  const storageKey = user?.id ? `neurospace_chat_${user.id}` : 'neurospace_chat';
+export function useChat(): UseChatReturn {
+  const [state, setState] = useState<ChatState>({
+    messages: [],
+    isStreaming: false,
+    error: null,
+    selectedSources: [],
+  });
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { messages: ChatMessage[]; mode: 'general' | 'document' | null; selectedFiles?: string[] };
-        setMessages(parsed.messages || []);
-        if (parsed.mode) setMode(parsed.mode);
-        if (parsed.selectedFiles) setSelectedFiles(parsed.selectedFiles);
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ messages, mode, selectedFiles }));
-    } catch {}
-  }, [messages, mode, selectedFiles, storageKey]);
+  const sendMessage = useCallback(async (message: string) => {
+    if (!message.trim() || state.isStreaming) return;
 
-  // Abort any in-flight request when the component using this hook unmounts
-  useEffect(() => {
-    return () => {
-      if (abortRef.current) {
-        try {
-          abortRef.current.abort();
-        } catch {}
-        abortRef.current = null;
-      }
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: message.trim(),
+      role: 'user',
+      timestamp: new Date(),
     };
+
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, userMessage],
+      error: null,
+    }));
+
+    try {
+      const request: ChatRequest = {
+        message: message.trim(),
+        sources: state.selectedSources,
+        history: state.messages.slice(-10), // Last 10 messages for context
+      };
+
+      const response = await apiClient.sendChatMessage(request);
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: response.data?.response || 'Sorry, I encountered an error processing your request.',
+        role: 'assistant',
+        timestamp: new Date(),
+        sources: response.data?.sources || [],
+      };
+
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, assistantMessage],
+      }));
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: 'Sorry, I encountered an error. Please try again.',
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, errorMessage],
+        error: error instanceof Error ? error.message : 'Chat failed',
+      }));
+    }
+  }, [state.messages, state.selectedSources, state.isStreaming]);
+
+  const sendMessageStream = useCallback(async (message: string) => {
+    if (!message.trim() || state.isStreaming) return;
+
+    // Cancel any ongoing stream
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: message.trim(),
+      role: 'user',
+      timestamp: new Date(),
+    };
+
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, userMessage],
+      isStreaming: true,
+      error: null,
+    }));
+
+    // Create a placeholder assistant message for streaming
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      content: '',
+      role: 'assistant',
+      timestamp: new Date(),
+      sources: [],
+    };
+
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, assistantMessage],
+    }));
+
+    try {
+      const request: ChatRequest = {
+        message: message.trim(),
+        sources: state.selectedSources,
+        history: state.messages.slice(-10),
+      };
+
+      let fullResponse = '';
+
+      await apiClient.sendChatMessageStream(
+        request,
+        // onChunk callback
+        (chunk: string) => {
+          fullResponse += chunk;
+          setState(prev => ({
+            ...prev,
+            messages: prev.messages.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: fullResponse }
+                : msg
+            ),
+          }));
+        },
+        // onComplete callback
+        (response: ChatResponse) => {
+          setState(prev => ({
+            ...prev,
+            isStreaming: false,
+            messages: prev.messages.map(msg =>
+              msg.id === assistantMessageId
+                ? { 
+                    ...msg, 
+                    content: fullResponse || response.response,
+                    sources: response.sources || []
+                  }
+                : msg
+            ),
+          }));
+        },
+        // onError callback
+        (error: string) => {
+          setState(prev => ({
+            ...prev,
+            isStreaming: false,
+            error,
+            messages: prev.messages.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: 'Sorry, I encountered an error. Please try again.' }
+                : msg
+            ),
+          }));
+        }
+      );
+
+    } catch (error) {
+      console.error('Streaming chat error:', error);
+      setState(prev => ({
+        ...prev,
+        isStreaming: false,
+        error: error instanceof Error ? error.message : 'Streaming failed',
+        messages: prev.messages.map(msg =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: 'Sorry, I encountered an error. Please try again.' }
+            : msg
+        ),
+      }));
+    }
+  }, [state.messages, state.selectedSources, state.isStreaming]);
+
+  const setSelectedSources = useCallback((sources: string[]) => {
+    setState(prev => ({ ...prev, selectedSources: sources }));
   }, []);
 
-  async function sendMessage(content: string) {
-    // Cancel any in-flight request
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
-    abortRef.current = new AbortController();
+  const clearChat = useCallback(() => {
+    setState(prev => ({ ...prev, messages: [], error: null }));
+  }, []);
 
-    setError(null);
-    setLoading(true);
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
 
-    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  const addMessage = useCallback((message: ChatMessage) => {
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, message],
+    }));
+  }, []);
 
-    try {
-      const headers = await getAuthHeader();
-      // Kick off streaming request
-      const resp = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-        body: JSON.stringify({ content, selectedFiles }),
-        signal: abortRef.current.signal,
-      });
-
-      if (!resp.ok || !resp.body) {
-        const text = await resp.text().catch(() => '');
-        throw new Error(text || `Request failed: ${resp.status}`);
-      }
-
-      reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      const assistantId = crypto.randomUUID();
-      let created = false;
-      let buffer = '';
-      let references: { file_name: string; score?: number }[] | undefined;
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          // Check if we were aborted
-          if (abortRef.current?.signal.aborted) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // The first line is a JSON header with the mode, then raw tokens
-          if (!created) {
-            const newlineIdx = buffer.indexOf('\n');
-            if (newlineIdx === -1) continue;
-            const headerLine = buffer.slice(0, newlineIdx);
-            buffer = buffer.slice(newlineIdx + 1);
-            try {
-              const header = JSON.parse(headerLine) as { mode?: 'general' | 'document'; references?: { file_name: string; score?: number }[] };
-              if (header.mode === 'general' || header.mode === 'document') setMode(header.mode);
-              if (Array.isArray(header.references)) references = header.references;
-            } catch {}
-            setMessages((prev) => [
-              ...prev,
-              { id: assistantId, role: 'assistant', content: '', timestamp: Date.now(), references },
-            ]);
-            created = true;
-          }
-
-          if (buffer) {
-            const chunk = buffer;
-            buffer = '';
-            setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + chunk } : m)));
-          }
-        }
-      } finally {
-        // Ensure we close the reader
-        if (reader) {
-          try {
-            await reader.cancel();
-          } catch {
-            // Ignore cancel errors
-          }
-        }
-      }
-
-    } catch (e) {
-      if (e instanceof Error) {
-        // Don't show error for aborted requests
-        if (e.name === 'AbortError' || abortRef.current?.signal.aborted) {
-          return;
-        }
-        
-        // Handle specific connection errors
-        if (e.message.includes('ECONNRESET') || e.message.includes('aborted')) {
-          setError('Connection lost. Please try again.');
-        } else if (e.message.includes('fetch')) {
-          setError('Unable to connect to server. Please check your connection.');
-        } else {
-          setError(e.message);
-        }
-      } else {
-        setError('Failed to send message. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function stopGeneration() {
-    if (abortRef.current) {
-      try {
-        abortRef.current.abort();
-      } catch {}
-      abortRef.current = null;
-    }
-    setLoading(false);
-  }
-
-  return { messages, loading, error, mode, selectedFiles, setSelectedFiles, sendMessage, stopGeneration };
+  return {
+    ...state,
+    sendMessage,
+    sendMessageStream,
+    setSelectedSources,
+    clearChat,
+    clearError,
+    addMessage,
+  };
 }

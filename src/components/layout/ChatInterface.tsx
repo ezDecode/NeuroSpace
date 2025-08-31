@@ -3,55 +3,51 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Send as SendIcon,
-  Stop as StopIcon,
-  AttachFile as AttachFileIcon,
-  Tune as TuneIcon,
-  SmartToy as SmartToyIcon,
-  Person as PersonIcon,
-  ContentCopy as ContentCopyIcon,
-  ThumbUp as ThumbUpIcon,
-  ThumbDown as ThumbDownIcon,
-  MoreVert as MoreVertIcon
-} from '@mui/icons-material';
-import { 
-  TextField, 
-  IconButton, 
-  Button, 
-  Tooltip, 
-  Paper,
-  Typography,
-  Avatar,
-  Chip,
-  Menu,
-  MenuItem,
-  CircularProgress
-} from '@mui/material';
+  PaperAirplaneIcon,
+  StopIcon,
+  PaperClipIcon,
+  Cog6ToothIcon,
+  ChatBubbleLeftRightIcon,
+  UserIcon,
+  ClipboardDocumentIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  EllipsisVerticalIcon
+} from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
-
-interface Message {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  timestamp: Date;
-  sources?: string[];
-  isStreaming?: boolean;
-}
+import { useChat } from '@/hooks/useChat';
 
 interface ChatInterfaceProps {
   selectedSources: string[];
-  chatHistory: Message[];
-  onChatUpdate: (messages: Message[]) => void;
+  chatHistory: any[];
+  onChatUpdate: (messages: any[]) => void;
 }
 
 export default function ChatInterface({ selectedSources, chatHistory, onChatUpdate }: ChatInterfaceProps) {
   const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: any | null }>({ x: 0, y: 0, message: null });
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textFieldRef = useRef<HTMLInputElement>(null);
+  const textFieldRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    messages,
+    isStreaming,
+    error,
+    sendMessage,
+    sendMessageStream,
+    setSelectedSources,
+    clearError,
+  } = useChat();
+
+  // Sync selected sources with the chat hook
+  useEffect(() => {
+    setSelectedSources(selectedSources);
+  }, [selectedSources, setSelectedSources]);
+
+  // Sync messages with parent component
+  useEffect(() => {
+    onChatUpdate(messages);
+  }, [messages, onChatUpdate]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,64 +55,16 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
 
   useEffect(() => {
     scrollToBottom();
-  }, [chatHistory]);
+  }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!message.trim() || isLoading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: message.trim(),
-      role: 'user',
-      timestamp: new Date(),
-    };
-
-    const newHistory = [...chatHistory, userMessage];
-    onChatUpdate(newHistory);
-    setMessage('');
-    setIsLoading(true);
-    setIsStreaming(true);
+    if (!message.trim() || isStreaming) return;
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: message.trim(),
-          sources: selectedSources,
-          history: chatHistory.slice(-10), // Last 10 messages for context
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      const data = await response.json();
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.response || 'Sorry, I encountered an error processing your request.',
-        role: 'assistant',
-        timestamp: new Date(),
-        sources: data.sources || [],
-      };
-
-      onChatUpdate([...newHistory, assistantMessage]);
+      await sendMessageStream(message.trim());
+      setMessage('');
     } catch (error) {
-      console.error('Chat error:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'Sorry, I encountered an error. Please try again.',
-        role: 'assistant',
-        timestamp: new Date(),
-      };
-      onChatUpdate([...newHistory, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
+      console.error('Failed to send message:', error);
     }
   };
 
@@ -129,17 +77,16 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
 
   const handleCopyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
-    handleMenuClose();
+    setContextMenu({ x: 0, y: 0, message: null });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, message: Message) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedMessage(message);
+  const handleContextMenu = (event: React.MouseEvent, message: any) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, message });
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedMessage(null);
+  const closeContextMenu = () => {
+    setContextMenu({ x: 0, y: 0, message: null });
   };
 
   const formatTime = (date: Date) => {
@@ -147,60 +94,70 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       {/* Chat Header */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <SmartToyIcon className="text-blue-600" />
-              <Typography variant="h6" className="font-medium">
+              <ChatBubbleLeftRightIcon className="w-6 h-6 text-blue-600" />
+              <h2 className="text-lg font-medium text-gray-900">
                 Chat
-              </Typography>
+              </h2>
             </div>
             {selectedSources.length > 0 && (
-              <Chip
-                label={`${selectedSources.length} source${selectedSources.length !== 1 ? 's' : ''}`}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                {selectedSources.length} source{selectedSources.length !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
           
           <div className="flex items-center space-x-1">
-            <Tooltip title="Settings">
-              <IconButton size="small">
-                <TuneIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              <Cog6ToothIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 border-b border-red-200 bg-red-50">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-700">{error}</p>
+            <button
+              onClick={clearError}
+              className="text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {chatHistory.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-md">
-              <SmartToyIcon className="text-gray-300 mb-4" style={{ fontSize: 64 }} />
-              <Typography variant="h6" className="text-gray-600 mb-2">
+              <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-600 mb-2">
                 {selectedSources.length > 0 
                   ? "Ready to chat about your sources" 
                   : "Add sources to get started"
                 }
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
+              </h3>
+              <p className="text-sm text-gray-500">
                 {selectedSources.length > 0
                   ? "Ask me anything about your uploaded documents."
                   : "Upload some documents first, then ask me questions about them."
                 }
-              </Typography>
+              </p>
             </div>
           </div>
         ) : (
           <AnimatePresence>
-            {chatHistory.map((msg, index) => (
+            {messages.map((msg, index) => (
               <motion.div
                 key={msg.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -209,15 +166,14 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} space-x-3`}
               >
                 {msg.role === 'assistant' && (
-                  <Avatar className="bg-blue-100 text-blue-600 w-8 h-8">
-                    <SmartToyIcon fontSize="small" />
-                  </Avatar>
+                  <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ChatBubbleLeftRightIcon className="w-5 h-5" />
+                  </div>
                 )}
                 
                 <div className={`max-w-[70%] ${msg.role === 'user' ? 'order-first' : ''}`}>
-                  <Paper
-                    elevation={1}
-                    className={`p-4 ${
+                  <div
+                    className={`p-4 rounded-lg shadow-sm ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-50 text-gray-900'
@@ -233,92 +189,86 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
                     
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-gray-200">
-                        <Typography variant="caption" className="text-gray-600 block mb-2">
+                        <p className="text-xs text-gray-600 mb-2">
                           Sources:
-                        </Typography>
+                        </p>
                         <div className="flex flex-wrap gap-1">
-                          {msg.sources.map((source, idx) => (
-                            <Chip
+                          {msg.sources.map((source: string, idx: number) => (
+                            <span
                               key={idx}
-                              label={source}
-                              size="small"
-                              variant="outlined"
-                              className="text-xs"
-                            />
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200"
+                            >
+                              {source}
+                            </span>
                           ))}
                         </div>
                       </div>
                     )}
-                  </Paper>
+                  </div>
                   
                   <div className={`flex items-center mt-2 space-x-2 ${
                     msg.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}>
-                    <Typography variant="caption" color="textSecondary">
+                    <span className="text-xs text-gray-500">
                       {formatTime(msg.timestamp)}
-                    </Typography>
+                    </span>
                     
                     {msg.role === 'assistant' && (
                       <div className="flex items-center space-x-1">
-                        <Tooltip title="Copy">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleCopyMessage(msg.content)}
-                          >
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Good response">
-                          <IconButton size="small">
-                            <ThumbUpIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <Tooltip title="Poor response">
-                          <IconButton size="small">
-                            <ThumbDownIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => handleMenuOpen(e, msg)}
+                        <button 
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                          onClick={() => handleCopyMessage(msg.content)}
+                          title="Copy"
                         >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
+                          <ClipboardDocumentIcon className="w-4 h-4" />
+                        </button>
+                        
+                        <button className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors" title="Good response">
+                          <HandThumbUpIcon className="w-4 h-4" />
+                        </button>
+                        
+                        <button className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors" title="Poor response">
+                          <HandThumbDownIcon className="w-4 h-4" />
+                        </button>
+                        
+                        <button 
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                          onClick={(e) => handleContextMenu(e, msg)}
+                        >
+                          <EllipsisVerticalIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
                 
                 {msg.role === 'user' && (
-                  <Avatar className="bg-gray-300 text-gray-700 w-8 h-8">
-                    <PersonIcon fontSize="small" />
-                  </Avatar>
+                  <div className="w-8 h-8 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                    <UserIcon className="w-5 h-5" />
+                  </div>
                 )}
               </motion.div>
             ))}
           </AnimatePresence>
         )}
         
-        {isLoading && (
+        {isStreaming && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex justify-start space-x-3"
           >
-            <Avatar className="bg-blue-100 text-blue-600 w-8 h-8">
-              <SmartToyIcon fontSize="small" />
-            </Avatar>
-            <Paper elevation={1} className="p-4 bg-gray-50">
+            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <ChatBubbleLeftRightIcon className="w-5 h-5" />
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg shadow-sm">
               <div className="flex items-center space-x-2">
-                <CircularProgress size={16} />
-                <Typography variant="body2" color="textSecondary">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-600">
                   Thinking...
-                </Typography>
+                </span>
               </div>
-            </Paper>
+            </div>
           </motion.div>
         )}
         
@@ -329,11 +279,8 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
       <div className="p-4 border-t border-gray-200 bg-white">
         <div className="flex items-end space-x-2">
           <div className="flex-1">
-            <TextField
+            <textarea
               ref={textFieldRef}
-              fullWidth
-              multiline
-              maxRows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -341,57 +288,60 @@ export default function ChatInterface({ selectedSources, chatHistory, onChatUpda
                 ? "Ask anything about your sources..." 
                 : "Upload sources first to start chatting..."
               }
-              disabled={isLoading || selectedSources.length === 0}
-              variant="outlined"
-              size="small"
-              InputProps={{
-                endAdornment: (
-                  <div className="flex items-center space-x-1">
-                    <Tooltip title="Attach file">
-                      <IconButton size="small" disabled>
-                        <AttachFileIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </div>
-                ),
-              }}
+              disabled={isStreaming || selectedSources.length === 0}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              rows={1}
+              style={{ minHeight: '48px', maxHeight: '120px' }}
             />
           </div>
           
-          <Tooltip title={isLoading ? "Stop" : "Send"}>
-            <span>
-              <IconButton
-                onClick={isLoading ? () => setIsLoading(false) : handleSendMessage}
-                disabled={!message.trim() && !isLoading}
-                color="primary"
-                className="bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
-              >
-                {isLoading ? (
-                  <StopIcon />
-                ) : (
-                  <SendIcon />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
+          <button
+            onClick={isStreaming ? () => {} : handleSendMessage}
+            disabled={!message.trim() && !isStreaming}
+            className={`p-3 rounded-lg transition-colors ${
+              isStreaming
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed'
+            }`}
+            title={isStreaming ? "Stop" : "Send"}
+          >
+            {isStreaming ? (
+              <StopIcon className="w-5 h-5" />
+            ) : (
+              <PaperAirplaneIcon className="w-5 h-5" />
+            )}
+          </button>
         </div>
         
-        <Typography variant="caption" color="textSecondary" className="block mt-2 text-center">
+        <p className="text-xs text-gray-500 mt-2 text-center">
           NeuroSpace can make mistakes. Check important information.
-        </Typography>
+        </p>
       </div>
 
       {/* Context Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => selectedMessage && handleCopyMessage(selectedMessage.content)}>
-          <ContentCopyIcon className="mr-2" fontSize="small" />
-          Copy
-        </MenuItem>
-      </Menu>
+      {contextMenu.message && (
+        <div 
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => handleCopyMessage(contextMenu.message!.content)}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+          >
+            <ClipboardDocumentIcon className="w-4 h-4" />
+            <span>Copy</span>
+          </button>
+        </div>
+      )}
+
+      {/* Overlay to close context menu */}
+      {contextMenu.message && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={closeContextMenu}
+        />
+      )}
     </div>
   );
 }
+

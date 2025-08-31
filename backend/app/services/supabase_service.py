@@ -1,7 +1,7 @@
 import os
 from supabase import create_client, Client
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 class SupabaseService:
     def __init__(self):
@@ -14,6 +14,10 @@ class SupabaseService:
         Create a new file record in the database
         """
         try:
+            print(f"Creating file record for: {file_data.get('file_name', 'unknown')}")
+            print(f"User ID: {file_data.get('user_id', 'unknown')}")
+            print(f"File key: {file_data.get('file_key', 'unknown')}")
+            
             # First check if the table exists and create it if not
             await self._ensure_tables_exist()
             
@@ -28,18 +32,26 @@ class SupabaseService:
                 'chunks_count': file_data.get('chunks_count', 0),
                 'embedding_count': file_data.get('embedding_count', 0),
                 'last_error': file_data.get('last_error'),
-                'created_at': datetime.utcnow().isoformat(),
+                'created_at': datetime.now(timezone.utc).isoformat(),
                 'processed_at': None
             }
 
+            print(f"Inserting data: {data}")
             result = self.client.table('files').insert(data).execute()
+            print(f"Insert result: {result}")
             
             if result.data:
-                return result.data[0]['id']
-            return None
+                file_id = result.data[0]['id']
+                print(f"File record created successfully with ID: {file_id}")
+                return file_id
+            else:
+                print("No data returned from insert operation")
+                return None
 
         except Exception as e:
             print(f"Error creating file record: {e}")
+            print(f"Error type: {type(e)}")
+            print(f"Error details: {str(e)}")
             return None
 
     async def _ensure_tables_exist(self):
@@ -83,7 +95,7 @@ class SupabaseService:
         try:
             update_data = {
                 'status': status,
-                'processed_at': datetime.utcnow().isoformat()
+                'processed_at': datetime.now(timezone.utc).isoformat()
             }
             
             if chunks_count is not None:
@@ -210,7 +222,7 @@ class SupabaseService:
                 'file_id': job_data['file_id'],
                 'user_id': job_data['user_id'],
                 'status': job_data.get('status', 'processing'),
-                'created_at': datetime.utcnow().isoformat(),
+                'created_at': datetime.now(timezone.utc).isoformat(),
                 'completed_at': None
             }
 
@@ -231,7 +243,7 @@ class SupabaseService:
         try:
             update_data = {
                 'status': status,
-                'completed_at': datetime.utcnow().isoformat() if status == 'completed' else None
+                'completed_at': datetime.now(timezone.utc).isoformat() if status == 'completed' else None
             }
 
             result = self.client.table('processing_jobs').update(update_data).eq('id', job_id).execute()
