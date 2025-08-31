@@ -27,17 +27,21 @@ interface FileSelectorProps {
   onSelectionChange: (selectedFiles: string[]) => void;
   isLoading?: boolean;
   className?: string;
+  maxDisplayCount?: number;
+  showSelectAll?: boolean;
 }
 
-export default function FileSelector({ 
+const FileSelector = React.memo(function FileSelector({ 
   files, 
   selectedFiles, 
   onSelectionChange, 
   isLoading = false,
-  className = ''
+  className = '',
+  maxDisplayCount = 10,
+  showSelectAll = true
 }: FileSelectorProps) {
   // Component state management
-  const [displayCount, setDisplayCount] = useState<number>(10);
+  const [displayCount, setDisplayCount] = useState<number>(maxDisplayCount);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   // Memoized computations for performance
@@ -218,7 +222,7 @@ export default function FileSelector({
           {files.length} file{files.length !== 1 ? 's' : ''} available
         </div>
         
-        {selectedFiles.length > 0 && selectedFiles.length < files.length && (
+        {showSelectAll && selectedFiles.length > 0 && selectedFiles.length < files.length && (
           <button
             onClick={handleSelectAll}
             className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
@@ -230,7 +234,7 @@ export default function FileSelector({
           </button>
         )}
         
-        {selectedFiles.length === files.length && files.length > 0 && (
+        {showSelectAll && selectedFiles.length === files.length && files.length > 0 && (
           <button
             onClick={handleSelectAll}
             className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-700 transition-colors"
@@ -298,4 +302,6 @@ export default function FileSelector({
       )}
     </div>
   );
-}
+});
+
+export default FileSelector;
