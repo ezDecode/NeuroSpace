@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <MaybeClerkProvider>
       <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
-        <body className={`${inter.className} min-h-screen bg-[#07080B] text-slate-100 antialiased`}>
+        <body className={`${inter.className} min-h-screen bg-white text-gray-900 antialiased`}>
           <div className="grid">{children}</div>
           <Toaster position="top-right" />
         </body>

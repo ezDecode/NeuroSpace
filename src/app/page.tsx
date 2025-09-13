@@ -11,29 +11,31 @@ import Testimonials from '../components/Testimonials';
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-[#07080B] text-slate-100">
+    <div className="relative min-h-screen overflow-x-clip bg-black text-white">
       <Navbar />
 
       {/* Hero */}
-      <section className="relative mx-auto flex min-h-[80vh] max-w-7xl flex-col items-center justify-center px-4 sm:px-6 text-center">
-        <motion.h1
-          initial={{ y: 16, opacity: 0 }}
+      <section className="relative mx-auto flex min-h-[85vh] max-w-6xl flex-col items-center justify-center px-6 sm:px-8 text-center py-20">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          className="mx-auto max-w-7xl text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight text-white leading-none"
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className="mb-8"
         >
-          Know Everything, Find Anything
-        </motion.h1>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-tight mb-6">
+            Understand <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">anything</span>
+          </h1>
+        </motion.div>
 
         <motion.p
           initial={{ y: 20, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="mt-8 max-w-7xl text-xl sm:text-2xl md:text-3xl text-white/80 leading-relaxed"
+          className="max-w-3xl text-lg sm:text-xl md:text-2xl text-gray-300 leading-relaxed mb-12"
         >
-          AI that reads your docs, remembers everything, answers instantly.
+          Your research and thinking partner, grounded in the information that you trust, built with the latest AI models.
         </motion.p>
 
         <motion.div
@@ -41,197 +43,242 @@ export default function Home() {
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-12 flex flex-col items-center justify-center gap-6 sm:flex-row w-full max-w-7xl"
+          className="flex flex-col items-center justify-center gap-4 sm:flex-row w-full max-w-md"
         >
           <MaybeSignedOut>
-            <SignUpTrigger className="w-full sm:w-auto relative inline-flex items-center justify-center rounded-xl px-10 py-4 text-lg sm:text-xl font-semibold bg-white text-black border-0 transition-all duration-200 hover:bg-gray-100 min-h-[56px]">
-              Start for free
+            <SignUpTrigger className="w-full sm:w-auto relative inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-medium bg-white text-black border-0 transition-all duration-200 hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+              Try NeuroSpace
             </SignUpTrigger>
           </MaybeSignedOut>
           <MaybeSignedIn>
-            <GlassButton href="/notebook" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Open Notebook</GlassButton>
+            <GlassButton href="/notebook" className="w-full sm:w-auto text-base px-8 py-4 bg-white text-black rounded-full hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200">Open Notebook</GlassButton>
           </MaybeSignedIn>
-          <GlassButton href="#how" className="w-full sm:w-auto bg-transparent border border-white/20 text-white hover:bg-white/5 text-lg sm:text-xl px-10 py-4 min-h-[56px]">
-            How it works
-          </GlassButton>
-        </motion.div>
-
-        {/* Subtle stats strip */}
-        <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          whileInView={{ y: 0, opacity: 1 }}
-          viewport={{ once: false, amount: 0.3 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="mt-16 grid w-full max-w-7xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {[
-            ['95%+', 'Answer accuracy'],
-            ['10x', 'Faster search'],
-            ['AES-256', 'Data at rest'],
-            ['Zero-trust', 'Access control'],
-          ].map(([stat, label]) => (
-            <div
-              key={label}
-              className="rounded-xl border border-white/20 bg-white/5 p-6 sm:p-8 text-center"
-            >
-              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{stat}</div>
-              <div className="text-base sm:text-lg text-white/60 mt-2">{label}</div>
-            </div>
-          ))}
         </motion.div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="relative mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-32">
+      {/* AI-Powered Research Partner Section */}
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 py-16">
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.8 }}
-          className="mx-auto max-w-7xl text-center"
+          className="text-center mb-16"
         >
-          <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">
-            Built for Speed, Built to Scale
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Your AI-powered research partner
           </h2>
-          <p className="mt-6 text-lg sm:text-xl md:text-2xl text-white/70 leading-relaxed max-w-5xl mx-auto">
-            Enterprise AI that works at the speed of thought.
-          </p>
         </motion.div>
+
         <motion.div
           initial={{ y: 40, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto"
+          className="grid gap-12 lg:grid-cols-2 items-center"
         >
-          <FeatureCard
-            title="Upload & Forget"
-            description="Drop files. We handle the rest. Instant AI-powered organization."
-            icon="📤"
-          />
-          <FeatureCard
-            title="Ask Anything"
-            description="Natural questions. Perfect answers. With proof and sources."
-            icon="🔎"
-          />
-          <FeatureCard
-            title="Bank-Level Security"
-            description="Military-grade encryption. Your data stays yours, period."
-            icon="🔐"
-          />
+          <div className="order-2 lg:order-1">
+            <div className="flex items-center mb-6">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
+                <span className="text-2xl">📤</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Upload your sources</h3>
+            </div>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Upload PDFs, websites, YouTube videos, audio files, Google Docs, or Google Slides, 
+              and NeuroSpace will summarize them and make interesting connections between topics, 
+              all powered by advanced AI understanding capabilities.
+            </p>
+          </div>
+          <div className="order-1 lg:order-2">
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-8 shadow-lg">
+              <div className="w-full h-64 bg-white rounded-2xl shadow-sm flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-3xl">📁</span>
+                  </div>
+                  <p className="text-gray-500">Drag & drop your files here</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="relative mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-32">
+      {/* Instant Insights Section */}
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 py-16">
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.8 }}
+          className="grid gap-12 lg:grid-cols-2 items-center"
+        >
+          <div className="order-1">
+            <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-3xl p-8 shadow-lg">
+              <div className="w-full h-64 bg-white rounded-2xl shadow-sm flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-3xl">🧠</span>
+                  </div>
+                  <p className="text-gray-500">AI analyzing your content...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="order-2">
+            <div className="flex items-center mb-6">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                <span className="text-2xl">⚡</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Instant insights</h3>
+            </div>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              With all of your sources in place, NeuroSpace gets to work and becomes a personalized 
+              AI expert in the information that matters most to you.
+            </p>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Source Citations Section */}
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 py-16">
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.8 }}
+          className="grid gap-12 lg:grid-cols-2 items-center"
+        >
+          <div className="order-2 lg:order-1">
+            <div className="flex items-center mb-6">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">See the source, not just the answer</h3>
+            </div>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Gain confidence in every response because NeuroSpace provides clear citations for its work, 
+              showing you the exact quotes from your sources.
+            </p>
+          </div>
+          <div className="order-1 lg:order-2">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 shadow-lg">
+              <div className="w-full h-64 bg-white rounded-2xl shadow-sm p-6">
+                <div className="space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-blue-200 rounded w-1/2"></div>
+                  <div className="text-xs text-blue-600 mt-2">Source: Document.pdf, Page 3</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* How People Use Section */}
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 py-20">
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.8 }}
-          className="mx-auto max-w-7xl text-center"
+          className="text-center mb-16"
         >
-          <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">Three Steps to Smart</h2>
-          <p className="mt-6 text-lg sm:text-xl md:text-2xl text-white/70 leading-relaxed max-w-5xl mx-auto">
-            From chaos to clarity in minutes, not months.
-          </p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            How people are using NeuroSpace
+          </h2>
         </motion.div>
+        
         <motion.div
           initial={{ y: 40, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-16 max-w-7xl mx-auto"
+          className="grid gap-8 md:grid-cols-3"
         >
-          <Timeline
-            steps={[
-              {
-                title: 'Upload',
-                description:
-                  'Drag, drop, done. We instantly structure your content.',
-              },
-              {
-                title: 'Process',
-                description:
-                  'AI reads everything. Creates smart connections. Ready to search.',
-              },
-              {
-                title: 'Ask',
-                description:
-                  'Type your question. Get instant answers with sources.',
-              },
-            ]}
-          />
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+              <span className="text-2xl">📚</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Power study</h3>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Upload lecture recordings, textbook chapters, and research papers. Ask NeuroSpace to explain 
+              complex concepts in simple terms, provide real-world examples, and reinforce your understanding.
+            </p>
+            <p className="text-sm font-medium text-blue-600">Learn faster and deeper.</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <span className="text-2xl">🎯</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Organize your thinking</h3>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Upload your source material and let NeuroSpace create a polished presentation outline, 
+              complete with key talking points and supporting evidence.
+            </p>
+            <p className="text-sm font-medium text-green-600">Present with confidence.</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+              <span className="text-2xl">💡</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Spark new ideas</h3>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Upload brainstorming notes, market research, and competitor research. Ask NeuroSpace to 
+              identify trends, generate new product ideas, and uncover hidden opportunities.
+            </p>
+            <p className="text-sm font-medium text-purple-600">Unlock your creative potential.</p>
+          </div>
         </motion.div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="relative mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-32">
-        <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          whileInView={{ y: 0, opacity: 1 }}
-          viewport={{ once: false, amount: 0.3 }}
-          transition={{ duration: 0.8 }}
-          className="mx-auto max-w-7xl text-center"
-        >
-          <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">Trusted by Winners</h2>
-          <p className="mt-6 text-lg sm:text-xl md:text-2xl text-white/70 leading-relaxed max-w-5xl mx-auto">Real results from teams who switched to NeuroSpace.</p>
-        </motion.div>
+      {/* Privacy Section */}
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 py-16">
         <motion.div
           initial={{ y: 40, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.2 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-16 max-w-7xl mx-auto"
+          transition={{ duration: 0.8 }}
+          className="bg-gray-50 rounded-3xl p-8 lg:p-12 text-center"
         >
-          <Testimonials
-            items={[
-              {
-                quote:
-                  'NeuroSpace turned our scattered docs into a single source of truth. Search speed is unreal.',
-                author: 'Maya R.',
-                role: 'Head of Ops, Series A SaaS',
-              },
-              {
-                quote:
-                  'I ask one question and get exactly what I need with citations. It feels magical.',
-                author: 'Alex P.',
-                role: 'Founder & Researcher',
-              },
-              {
-                quote:
-                  'Setup took minutes. The experience feels premium and thoughtfully designed.',
-                author: 'Jordan T.',
-                role: 'Design Lead',
-              },
-            ]}
-          />
+          <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-6 flex items-center justify-center">
+            <span className="text-3xl">🔒</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">We value your privacy</h3>
+          <p className="text-lg text-gray-600 leading-relaxed max-w-3xl mx-auto">
+            We do not use your personal data to train NeuroSpace. NeuroSpace does not use your personal data, 
+            including your source uploads, queries, and the responses from the model for training.
+          </p>
         </motion.div>
       </section>
 
       {/* CTA Footer */}
-      <section className="relative mx-auto max-w-7xl px-4 sm:px-6 pb-24">
+      <section className="relative mx-auto max-w-6xl px-6 sm:px-8 pb-24">
         <motion.div
           initial={{ y: 40, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.8 }}
-          className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/5 p-8 sm:p-12 lg:p-16 text-center max-w-7xl mx-auto"
+          className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-8 lg:p-16 text-center shadow-lg"
         >
-          <h3 className="relative text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
+          <h3 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
             Your Smart Workspace Awaits
           </h3>
-          <p className="relative mt-4 text-lg sm:text-xl md:text-2xl text-white/70 leading-relaxed max-w-4xl mx-auto">
+          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
             Join the knowledge revolution. Start free, scale fast.
           </p>
-          <div className="relative mt-8 flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center">
             <MaybeSignedOut>
-              <SignUpTrigger className="w-full sm:w-auto relative inline-flex items-center justify-center rounded-xl px-10 py-4 text-lg sm:text-xl font-semibold bg-white text-black border-0 transition-all duration-200 hover:bg-gray-100 min-h-[56px] max-w-xs">
+              <SignUpTrigger className="inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-medium bg-black text-white border-0 transition-all duration-200 hover:bg-gray-800 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                 Get started
               </SignUpTrigger>
             </MaybeSignedOut>
             <MaybeSignedIn>
-              <GlassButton href="/notebook" className="w-full sm:w-auto text-lg sm:text-xl px-10 py-4 min-h-[56px]">Go to Notebook</GlassButton>
+              <GlassButton href="/notebook" className="inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-medium bg-black text-white hover:bg-gray-800 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200">Go to Notebook</GlassButton>
             </MaybeSignedIn>
           </div>
         </motion.div>
